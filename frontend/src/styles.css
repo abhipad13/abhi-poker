@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Optional: subtle felt background + default text color */
+:root {
+  --felt: #0b6b3a;
+  --gold: #d4af37;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  background-color: var(--felt);
+  color: white;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+    radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-position: 0 0, 25px 25px;
+  background-size: 50px 50px;
+}
