@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createGame, joinGame } from "@/services/api/game";
+import { useGameIdentity } from "@/context/GameIdentityContext";
 
 export default function JoinCreateGame() {
   const nav = useNavigate();
+  const { setYouName } = useGameIdentity();
 
   // Create form
   const [managerName, setManagerName] = useState("");
@@ -23,8 +25,7 @@ export default function JoinCreateGame() {
     try {
       if (!managerName.trim()) throw new Error("Enter your name.");
       const res = await createGame(managerName.trim());
-      // Store the manager's name in localStorage
-      localStorage.setItem("youName", managerName.trim());
+      setYouName(managerName.trim());
       setOk(`Game created: ${res.gameId}`);
       nav(`/lobby/${res.gameId}`);
     } catch (e: any) {
@@ -39,8 +40,7 @@ export default function JoinCreateGame() {
     try {
       if (!joinGameId.trim() || !joinName.trim()) throw new Error("Enter game ID and your name.");
       await joinGame(joinGameId.trim(), joinName.trim());
-      // Store the player's name in localStorage
-      localStorage.setItem("youName", joinName.trim());
+      setYouName(joinName.trim());
       setOk("Joined! Taking you to the lobby…");
       nav(`/lobby/${joinGameId.trim()}`);
     } catch (e: any) {

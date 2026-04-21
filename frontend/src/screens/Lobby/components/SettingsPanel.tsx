@@ -4,11 +4,9 @@ import { fromCents, toCents } from "@/utils/money";
 
 type Props = {
   gameId: string;
-  managerName: string;        // who is making the request
+  managerName: string;
   isManager: boolean;
-  // For per-player overrides (optional)
   players: string[];
-  // Optional current values (if known from WS TABLE_UPDATE)
   currentSmallBlindCents?: number;
   currentBigBlindCents?: number;
   currentDefaultStartingMoneyCents?: number;
@@ -17,133 +15,91 @@ type Props = {
 };
 
 const DEFAULT_CHIPS: Record<string, number> = {
-  white: 10,   // $0.10
-  red: 20,     // $0.20
-  green: 25,   // $0.25
-  blue: 50,    // $0.50
-  black: 100,  // $1.00
+  white: 10, red: 20, green: 25, blue: 50, black: 100,
 };
 
+const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input
+    {...props}
+    className={`w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--gold)] ${props.className ?? ""}`}
+  />
+);
+
 export default function SettingsPanel({
-  gameId,
-  managerName,
-  isManager,
-  players,
-  currentSmallBlindCents,
-  currentBigBlindCents,
-  currentDefaultStartingMoneyCents,
-  currentChipValues,
+  gameId, managerName, isManager, players,
+  currentSmallBlindCents, currentBigBlindCents,
+  currentDefaultStartingMoneyCents, currentChipValues,
   currentCustomStartingMoneyCents,
 }: Props) {
-  // form state in dollars for easy typing
-  const [smallBlind, setSmallBlind]   = useState(fromCents(currentSmallBlindCents ?? 10));   // $0.10
-  const [bigBlind, setBigBlind]       = useState(fromCents(currentBigBlindCents ?? 20));    // $0.20
-  const [defaultStack, setDefaultStack] = useState(fromCents(currentDefaultStartingMoneyCents ?? 500)); // $5.00
+  const [smallBlind,   setSmallBlind]   = useState(fromCents(currentSmallBlindCents   ?? 10));
+  const [bigBlind,     setBigBlind]     = useState(fromCents(currentBigBlindCents     ?? 20));
+  const [defaultStack, setDefaultStack] = useState(fromCents(currentDefaultStartingMoneyCents ?? 500));
 
-  // chip values (in cents internally)
-  const [chips, setChips] = useState<Record<string, number>>(DEFAULT_CHIPS);
-  
-  // per-player override (dollars text)
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  // Chip values stored as dollar strings for controlled inputs
+  const [chipStrings, setChipStrings] = useState<Record<string, string>>(() => {
+    const src = currentChipValues && Object.keys(currentChipValues).length > 0 ? currentChipValues : DEFAULT_CHIPS;
+    return Object.fromEntries(Object.entries(src).map(([k, v]) => [k, fromCents(v)]));
+  });
+
+  // Per-player overrides stored as dollar strings
+  const [overrides, setOverrides] = useState<Record<string, string>>(() => {
+    if (!currentCustomStartingMoneyCents) return {};
+    return Object.fromEntries(
+      Object.entries(currentCustomStartingMoneyCents).map(([k, v]) => [k, fromCents(v)])
+    );
+  });
 
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg]       = useState<string | null>(null);
+  const [err, setErr]       = useState<string | null>(null);
+
+  // Sync from props when WebSocket pushes new values
+  useEffect(() => { if (currentSmallBlindCents)            setSmallBlind(fromCents(currentSmallBlindCents));           }, [currentSmallBlindCents]);
+  useEffect(() => { if (currentBigBlindCents)              setBigBlind(fromCents(currentBigBlindCents));               }, [currentBigBlindCents]);
+  useEffect(() => { if (currentDefaultStartingMoneyCents)  setDefaultStack(fromCents(currentDefaultStartingMoneyCents)); }, [currentDefaultStartingMoneyCents]);
 
   useEffect(() => {
-    if (currentChipValues && Object.keys(currentChipValues).length > 0) {
-      setChips(currentChipValues);
-    } else {
-      setChips(DEFAULT_CHIPS);
-    }
+    if (!currentChipValues || Object.keys(currentChipValues).length === 0) return;
+    setChipStrings(Object.fromEntries(Object.entries(currentChipValues).map(([k, v]) => [k, fromCents(v)])));
   }, [currentChipValues]);
 
   useEffect(() => {
-    if (currentDefaultStartingMoneyCents) {
-      setDefaultStack(fromCents(currentDefaultStartingMoneyCents));
-    }
-  }, [currentDefaultStartingMoneyCents]);
-
-  useEffect(() => {
-    if (currentSmallBlindCents) {
-      setSmallBlind(fromCents(currentSmallBlindCents));
-    }
-  }, [currentSmallBlindCents]);
-
-  useEffect(() => {
-    if (currentBigBlindCents) {
-      setBigBlind(fromCents(currentBigBlindCents));
-    }
-  }, [currentBigBlindCents]);
-
-  useEffect(() => {
-    if (currentCustomStartingMoneyCents) {
-      const newOverrides: Record<string, string> = {};
-      Object.entries(currentCustomStartingMoneyCents).forEach(([playerName, cents]) => {
-        newOverrides[playerName] = fromCents(cents);
-      });
-      setOverrides(newOverrides);
-    }
+    if (!currentCustomStartingMoneyCents) return;
+    setOverrides(Object.fromEntries(
+      Object.entries(currentCustomStartingMoneyCents).map(([k, v]) => [k, fromCents(v)])
+    ));
   }, [currentCustomStartingMoneyCents]);
 
   async function onSave() {
     if (!isManager) return;
     setErr(null); setMsg(null); setSaving(true);
     try {
-      // Get current chip values from the DOM inputs
-      const currentChipValues: Record<string, number> = {};
-      Object.keys(chips).forEach(color => {
-        const input = document.querySelector(`input[data-chip-color="${color}"]`) as HTMLInputElement;
-        if (input && input.value) {
-          const cents = toCents(input.value);
-          if (cents > 0) {
-            currentChipValues[color] = cents;
-          }
-        }
+      const chipValues: Record<string, number> = {};
+      Object.entries(chipStrings).forEach(([color, str]) => {
+        const cents = toCents(str);
+        if (cents > 0) chipValues[color] = cents;
       });
 
-      // Get current values from the DOM inputs
-      const smallBlindInput = document.querySelector('input[data-field="smallBlind"]') as HTMLInputElement;
-      const bigBlindInput = document.querySelector('input[data-field="bigBlind"]') as HTMLInputElement;
-      const defaultStackInput = document.querySelector('input[data-field="defaultStack"]') as HTMLInputElement;
-      
-      const currentSmallBlind = smallBlindInput?.value || smallBlind;
-      const currentBigBlind = bigBlindInput?.value || bigBlind;
-      const currentDefaultStack = defaultStackInput?.value || defaultStack;
-
-      // Get current player overrides from DOM
-      const currentOverrides: Record<string, number> = {};
-      players.forEach(name => {
-        const input = document.querySelector(`input[data-player-override="${name}"]`) as HTMLInputElement;
-        if (input && input.value && parseFloat(input.value) > 0) {
-          currentOverrides[name] = toCents(input.value);
-        }
+      const customStartingMoneyCents: Record<string, number> = {};
+      players.forEach((name) => {
+        const val = overrides[name];
+        if (val && parseFloat(val) > 0) customStartingMoneyCents[name] = toCents(val);
       });
 
-      const body = {
-        smallBlindCents: toCents(currentSmallBlind),
-        bigBlindCents: toCents(currentBigBlind),
-        defaultStartingMoneyCents: toCents(currentDefaultStack),
-        chipValues: currentChipValues,
-        customStartingMoneyCents: currentOverrides,
-      };
-      const text = await saveSettings(gameId, managerName, body);
+      const text = await saveSettings(gameId, managerName, {
+        smallBlindCents:            toCents(smallBlind),
+        bigBlindCents:              toCents(bigBlind),
+        defaultStartingMoneyCents:  toCents(defaultStack),
+        chipValues,
+        customStartingMoneyCents,
+      });
       setMsg(text || "Settings saved.");
-      // Your backend already does `applyInitialMoney()` here
-      // and (per earlier guidance) should broadcast TABLE_UPDATE.
     } catch (e: any) {
       setErr(e.message || "Failed to save settings.");
     } finally {
       setSaving(false);
     }
   }
-
-  const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input
-      {...props}
-      className={`w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--gold)] ${props.className||""}`}
-    />
-  );
 
   return (
     <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-4">
@@ -158,15 +114,8 @@ export default function SettingsPanel({
           <label className="block text-sm mb-1">Small blind ($)</label>
           <Input
             type="number" step="0.01" min="0"
-            defaultValue={smallBlind}
-            key={`smallBlind-${currentSmallBlindCents}`}
-            data-field="smallBlind"
-            onBlur={(e) => {
-              const newValue = e.target.value;
-              if (newValue && !isNaN(parseFloat(newValue)) && parseFloat(newValue) >= 0) {
-                setSmallBlind(newValue);
-              }
-            }}
+            value={smallBlind}
+            onChange={(e) => setSmallBlind(e.target.value)}
             disabled={!isManager}
           />
         </div>
@@ -174,15 +123,8 @@ export default function SettingsPanel({
           <label className="block text-sm mb-1">Big blind ($)</label>
           <Input
             type="number" step="0.01" min="0"
-            defaultValue={bigBlind}
-            key={`bigBlind-${currentBigBlindCents}`}
-            data-field="bigBlind"
-            onBlur={(e) => {
-              const newValue = e.target.value;
-              if (newValue && !isNaN(parseFloat(newValue)) && parseFloat(newValue) >= 0) {
-                setBigBlind(newValue);
-              }
-            }}
+            value={bigBlind}
+            onChange={(e) => setBigBlind(e.target.value)}
             disabled={!isManager}
           />
         </div>
@@ -190,15 +132,8 @@ export default function SettingsPanel({
           <label className="block text-sm mb-1">Default starting stack ($)</label>
           <Input
             type="number" step="0.01" min="0"
-            defaultValue={defaultStack}
-            key={`defaultStack-${currentDefaultStartingMoneyCents}`}
-            data-field="defaultStack"
-            onBlur={(e) => {
-              const newValue = e.target.value;
-              if (newValue && !isNaN(parseFloat(newValue)) && parseFloat(newValue) >= 0) {
-                setDefaultStack(newValue);
-              }
-            }}
+            value={defaultStack}
+            onChange={(e) => setDefaultStack(e.target.value)}
             disabled={!isManager}
           />
         </div>
@@ -208,21 +143,13 @@ export default function SettingsPanel({
       <div>
         <div className="text-sm mb-2">Chip values (per chip)</div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {Object.entries(chips).map(([color, cents]) => (
+          {Object.keys(chipStrings).map((color) => (
             <div key={color}>
               <label className="block text-xs mb-1 capitalize">{color} ($)</label>
               <Input
                 type="number" step="0.01" min="0"
-                defaultValue={fromCents(cents)}
-                key={`chip-${color}-${currentChipValues?.[color] || 0}`}
-                data-chip-color={color}
-                onBlur={(e) => {
-                  const newValue = e.target.value;
-                  if (newValue && !isNaN(parseFloat(newValue)) && parseFloat(newValue) > 0) {
-                    const cents = toCents(newValue);
-                    setChips(prev => ({ ...prev, [color]: cents }));
-                  }
-                }}
+                value={chipStrings[color]}
+                onChange={(e) => setChipStrings((prev) => ({ ...prev, [color]: e.target.value }))}
                 disabled={!isManager}
                 placeholder="0.00"
               />
@@ -232,30 +159,25 @@ export default function SettingsPanel({
       </div>
 
       {/* Per-player overrides */}
-      <div>
-        <div className="text-sm mb-2">Per-player starting stacks (optional)</div>
-        <div className="grid md:grid-cols-2 gap-3">
-          {players.map((name) => (
-            <div key={name} className="flex items-center gap-3">
-              <div className="w-32 truncate">{name}</div>
-              <Input
-                type="number" step="0.01" min="0"
-                placeholder="e.g. 150.00"
-                defaultValue={overrides[name] ?? ""}
-                key={`override-${name}-${currentCustomStartingMoneyCents?.[name] || 0}`}
-                data-player-override={name}
-                onBlur={(e) => {
-                  const newValue = e.target.value;
-                  if (newValue && !isNaN(parseFloat(newValue)) && parseFloat(newValue) >= 0) {
-                    setOverrides((m) => ({ ...m, [name]: newValue }));
-                  }
-                }}
-                disabled={!isManager}
-              />
-            </div>
-          ))}
+      {players.length > 0 && (
+        <div>
+          <div className="text-sm mb-2">Per-player starting stacks (optional)</div>
+          <div className="grid md:grid-cols-2 gap-3">
+            {players.map((name) => (
+              <div key={name} className="flex items-center gap-3">
+                <div className="w-32 truncate">{name}</div>
+                <Input
+                  type="number" step="0.01" min="0"
+                  placeholder="e.g. 150.00"
+                  value={overrides[name] ?? ""}
+                  onChange={(e) => setOverrides((prev) => ({ ...prev, [name]: e.target.value }))}
+                  disabled={!isManager}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {isManager && (
         <div className="flex justify-end">

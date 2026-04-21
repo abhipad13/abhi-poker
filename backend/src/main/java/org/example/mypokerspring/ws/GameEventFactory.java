@@ -81,6 +81,9 @@ public class GameEventFactory {
                         ? Map.copyOf(settings.getChipValues())
                         : Map.of();
 
+        Integer smallBlindCents = (settings != null) ? settings.getSmallBlindCents() : null;
+        Integer bigBlindCents   = (settings != null) ? settings.getBigBlindCents()   : null;
+
         // No hand yet → "Waiting"
         if (hand == null) {
             List<TableSnapshotPayload.PlayerView> players = game.getPlayers().stream()
@@ -101,7 +104,9 @@ public class GameEventFactory {
                     players,
                     chipValues,
                     0,              // minRaiseAmt
-                    0               // minCallAmt
+                    0,              // minCallAmt
+                    smallBlindCents,
+                    bigBlindCents
             );
         }
 
@@ -152,7 +157,9 @@ public class GameEventFactory {
                 players,
                 chipValues,
                 minRaiseAmt,
-                minCallAmt
+                minCallAmt,
+                smallBlindCents,
+                bigBlindCents
         );
     }
 
@@ -244,7 +251,16 @@ public class GameEventFactory {
             List<User> order,
             String manager
     ) {
-        // fallback-safe containers
+        return tableUpdate(gameId, settings, order, manager, List.of());
+    }
+
+    public static TableUpdatePayload tableUpdate(
+            String gameId,
+            GameSettings settings,
+            List<User> order,
+            String manager,
+            List<User> queuedPlayers
+    ) {
         Map<String, Integer> basic = new LinkedHashMap<>();
         Map<String, Integer> chips = Map.of();
         Integer defaultStart = null;
@@ -255,15 +271,14 @@ public class GameEventFactory {
             basic.put("smallBlindCents", settings.getSmallBlindCents());
             basic.put("bigBlindCents", settings.getBigBlindCents());
             chips = settings.getChipValues() != null ? settings.getChipValues() : Map.of();
-
-            // NEW
             defaultStart = settings.getDefaultStartingMoneyCents();
             customStarts = settings.getCustomStartingMoneyCents() != null
                     ? settings.getCustomStartingMoneyCents()
                     : Map.of();
         }
 
-        List<String> names = order.stream().map(User::getName).collect(Collectors.toList());
+        List<String> names      = order.stream().map(User::getName).collect(Collectors.toList());
+        List<String> queueNames = queuedPlayers.stream().map(User::getName).collect(Collectors.toList());
 
         return new TableUpdatePayload(
                 gameId,
@@ -272,7 +287,8 @@ public class GameEventFactory {
                 names,
                 manager,
                 defaultStart,
-                customStarts
+                customStarts,
+                queueNames
         );
     }
 

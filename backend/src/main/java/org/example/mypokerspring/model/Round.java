@@ -88,21 +88,22 @@ public class Round {
         }
 
         if (isPostingBlind) {
-            if (betCents != requiredBlindCents) {
-                gameLog.log(LogEventType.ERROR, "Blind must be exactly $" + MoneyUtils.formatCentsAsDollars(requiredBlindCents), true, true);
-                throw new IllegalArgumentException("You must post exactly " + MoneyUtils.formatCentsAsDollars(requiredBlindCents) + " as your blind.");
-            }
+            int actualBlindCents = Math.min(requiredBlindCents, player.getMoneyCents());
+            boolean isShortAllIn = actualBlindCents < requiredBlindCents;
+            String blindType = player.equals(smallBlindPlayer) ? "Small" : "Big";
             gameLog.log(LogEventType.PLAYER_ACTION,
-                    "💰 " + player.getName() + " posted " + (player.equals(smallBlindPlayer) ? "Small" : "Big") +
-                            " Blind of $" + MoneyUtils.formatCentsAsDollars(requiredBlindCents), true, false);
+                    "💰 " + player.getName() + " posted " + blindType + " Blind of $" +
+                            MoneyUtils.formatCentsAsDollars(actualBlindCents) +
+                            (isShortAllIn ? " (all-in)" : ""), true, false);
             blindPosted.add(player);
-            contributionsCents.put(player, betCents);
-
-            // NEW: when BB posts, declare the current bet
+            contributionsCents.put(player, actualBlindCents);
+            if (isShortAllIn) {
+                activePlayers.remove(player);
+            }
             if (player.equals(bigBlindPlayer)) {
-                highestBetCents = requiredBlindCents;   // everyone must match this
-                prevRaiseCents  = requiredBlindCents;   // min raise size = BB
-                raiseReopened   = true;
+                highestBetCents = actualBlindCents;
+                prevRaiseCents  = requiredBlindCents;
+                raiseReopened   = !isShortAllIn;
             }
             return;
         }

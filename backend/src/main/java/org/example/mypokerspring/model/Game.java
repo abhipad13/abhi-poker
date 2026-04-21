@@ -70,6 +70,10 @@ public class Game {
                 LogEventType.JOIN_LEAVE,
                 trimmedName + " accepted into game with $" + MoneyUtils.formatCentsAsDollars(startingMoneyCents) + "."
         , false, false);
+        gameLog.enqueueBroadcast(() -> broadcaster.sendTableUpdate(
+                GameEventFactory.tableUpdate(gameId, settings, players, managerId, queuedPlayers)));
+        gameLog.enqueueBroadcast(() -> broadcaster.sendPlayerState(
+                GameEventFactory.playerState(gameId, currentHand, players)));
 
         return "✅ Player '" + trimmedName + "' accepted into game with $" +
                 MoneyUtils.formatCentsAsDollars(startingMoneyCents) + ".";
@@ -106,11 +110,27 @@ public class Game {
             getQueuedPlayers().add(newUser);
             gameLog.log(LogEventType.JOIN_LEAVE,"🕒 " + trimmedName + " added to queue.", true, false);
             gameLog.enqueueBroadcast(() -> broadcaster.sendTableUpdate(
-                    GameEventFactory.tableUpdate(gameId, settings, players, managerId)));
-            gameLog.enqueueBroadcast(() -> broadcaster.sendPlayerState(
-                    GameEventFactory.playerState(gameId, currentHand, players)));
+                    GameEventFactory.tableUpdate(gameId, settings, players, managerId, queuedPlayers)));
             return "🕒 Player '" + trimmedName + "' added to queue (game already in progress).";
         }
+    }
+
+    public void setPlayerMoneyCents(String name, int amountCents, String requesterId) {
+        requireManager(requesterId);
+        if (hasHandInProgress()) {
+            throw new IllegalStateException("❌ Cannot update chips during an active hand.");
+        }
+        if (amountCents < 0) {
+            throw new IllegalArgumentException("❌ Chip amount cannot be negative.");
+        }
+        User player = requirePlayer(name);
+        player.setMoneyCents(amountCents);
+        gameLog.log(LogEventType.SYSTEM,
+                "💰 " + name + "'s stack set to $" + MoneyUtils.formatCentsAsDollars(amountCents) + " by manager.", false, false);
+        gameLog.enqueueBroadcast(() -> broadcaster.sendTableUpdate(
+                GameEventFactory.tableUpdate(gameId, settings, players, managerId)));
+        gameLog.enqueueBroadcast(() -> broadcaster.sendPlayerState(
+                GameEventFactory.playerState(gameId, currentHand, players)));
     }
 
     // ✅ Optional: remove player (if someone leaves the table)
@@ -127,7 +147,11 @@ public class Game {
         if (!removed) {
             throw new IllegalArgumentException("❌ Player '" + name + "' not found in the game.");
         }
-        gameLog.log(LogEventType.JOIN_LEAVE, name + " was removed from the game by the manager.", false, false);
+        gameLog.log(LogEventType.JOIN_LEAVE, "🚪 " + name + " was removed from the game by the manager.", false, false);
+        gameLog.enqueueBroadcast(() -> broadcaster.sendTableUpdate(
+                GameEventFactory.tableUpdate(gameId, settings, players, managerId)));
+        gameLog.enqueueBroadcast(() -> broadcaster.sendPlayerState(
+                GameEventFactory.playerState(gameId, currentHand, players)));
     }
 
     public void reorderPlayers(List<String> newOrder) {
@@ -181,6 +205,12 @@ public class Game {
         }
         if (players.size() < 2) {
             throw new IllegalStateException("At least 2 players are required to start a hand.");
+        }
+        for (User player : players) {
+            if (player.getMoneyCents() == 0) {
+                throw new IllegalStateException("❌ " + player.getName() +
+                        " has 0 chips and cannot play. They must rebuy or be removed before starting a new hand.");
+            }
         }
 
         currentHand = new Hand(new ArrayList<>(players), settings, gameLog);

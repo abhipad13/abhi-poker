@@ -12,7 +12,9 @@ public record TableSnapshotPayload(
         List<PlayerView> players,
         Map<String,Integer> chipValues,
         int minRaiseAmt,
-        int minCallAmt
+        int minCallAmt,
+        Integer smallBlindCents,
+        Integer bigBlindCents
 ) {
     public record PlayerView(
             String name,

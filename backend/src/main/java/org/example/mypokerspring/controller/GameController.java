@@ -44,9 +44,9 @@ public class GameController {
         game.getLock().lock();
         try {
             String result = game.addPlayer(name);
-            game.getGameLog().flushBroadcasts();
             return result;
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -91,9 +91,9 @@ public class GameController {
                     GameEventFactory.playerStateFromTable(game.getGameId(), game.getPlayers())
             );
             broadcaster.sendSnapshot(GameEventFactory.snapshot(game));
-            game.getGameLog().flushBroadcasts();
             return "✅ Settings updated.";
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -110,9 +110,9 @@ public class GameController {
             broadcaster.sendTableUpdate(
                     GameEventFactory.tableUpdate(game.getGameId(), game.getSettings(), game.getPlayers(), game.getManagerId())
             );
-            game.getGameLog().flushBroadcasts();
             return Map.of("message", "✅ New hand started.", "round", 1);
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -130,7 +130,6 @@ public class GameController {
             hand.applyMove(player, moveRequest.getSelection(), moveRequest.getBet());
 
             broadcaster.sendSnapshot(GameEventFactory.snapshot(game));
-            game.getGameLog().flushBroadcasts();
 
             if (hand.isShowdownStarted()) {
                 return Map.of(
@@ -141,6 +140,7 @@ public class GameController {
 
             return Map.of("message", "✅ Move accepted.", "round", hand.getCurrentRoundNumber());
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -160,7 +160,6 @@ public class GameController {
                     .toList();
 
             hand.assignPotToWinners(winners);
-            game.getGameLog().flushBroadcasts();
 
             if (hand.showdownComplete()) {
                 game.rotatePlayers();
@@ -172,6 +171,7 @@ public class GameController {
                     "potsRemaining", hand.getHandPots().size()
             );
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -285,9 +285,26 @@ public class GameController {
         try {
             game.requireManager(request.getRequesterId());
             String result = game.acceptQueuedPlayer(request.getName(), request.getStartingMoneyCents());
-            game.getGameLog().flushBroadcasts();
             return result;
         } finally {
+            game.getGameLog().flushBroadcasts();
+            game.getLock().unlock();
+        }
+    }
+
+    @PutMapping("/{gameId}/player/chips")
+    public String setPlayerChips(@PathVariable String gameId,
+                                  @RequestParam String requesterId,
+                                  @RequestParam String name,
+                                  @RequestParam int amountCents) {
+        log.info("📥 PUT /api/game/{}/player/chips requesterId={} name={} amountCents={}", gameId, requesterId, name, amountCents);
+        Game game = gameService.getGame(gameId);
+        game.getLock().lock();
+        try {
+            game.setPlayerMoneyCents(name, amountCents, requesterId);
+            return "✅ " + name + "'s chips updated.";
+        } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -301,9 +318,9 @@ public class GameController {
         game.getLock().lock();
         try {
             game.removePlayer(name, requesterId);
-            game.getGameLog().flushBroadcasts();
             return "✅ Player '" + name + "' removed from game.";
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -321,9 +338,9 @@ public class GameController {
             broadcaster.sendTableUpdate(
                     GameEventFactory.tableUpdate(game.getGameId(), game.getSettings(), game.getPlayers(), game.getManagerId())
             );
-            game.getGameLog().flushBroadcasts();
             return "✅ Player order updated.";
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -338,9 +355,9 @@ public class GameController {
         try {
             game.requireManager(requesterId);
             game.setManagerId(newManagerId);
-            game.getGameLog().flushBroadcasts();
             return "✅ " + newManagerId + " is now the manager.";
         } finally {
+            game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
         }
     }
@@ -395,6 +412,11 @@ public class GameController {
                     .map(Map::copyOf)
                     .orElseGet(Map::of);
 
+            Integer smallBlindCents = Optional.ofNullable(game.getSettings())
+                    .map(GameSettings::getSmallBlindCents).orElse(null);
+            Integer bigBlindCents = Optional.ofNullable(game.getSettings())
+                    .map(GameSettings::getBigBlindCents).orElse(null);
+
             if (hand == null) {
                 List<TableSnapshotResponse.PlayerView> players = game.getPlayers().stream()
                         .map(p -> new TableSnapshotResponse.PlayerView(
@@ -414,7 +436,9 @@ public class GameController {
                         players,
                         chipValues,
                         0,
-                        0
+                        0,
+                        smallBlindCents,
+                        bigBlindCents
                 );
             }
 
@@ -468,7 +492,9 @@ public class GameController {
                     players,
                     chipValues,
                     minRaiseAmt,
-                    minCallAmt
+                    minCallAmt,
+                    smallBlindCents,
+                    bigBlindCents
             );
         } finally {
             game.getLock().unlock();

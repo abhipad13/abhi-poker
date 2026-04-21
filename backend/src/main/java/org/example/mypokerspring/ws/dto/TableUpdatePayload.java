@@ -9,6 +9,7 @@ public record TableUpdatePayload(
         Map<String,Integer> chipValues,    // white/red/green/blue/black
         List<String> order,
         String manager,
-        Integer defaultStartingMoneyCents,          // NEW
-        Map<String, Integer> customStartingMoneyCents
+        Integer defaultStartingMoneyCents,
+        Map<String, Integer> customStartingMoneyCents,
+        List<String> queuedPlayers
 ) {}
