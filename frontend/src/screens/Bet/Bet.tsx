@@ -144,7 +144,8 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
     if (canAct) {
       try {
         await makeMove(gameId, { playerId: playerName, selection: "CALL_RAISE", bet: totalCents });
-        chipAreaRef.current?.flyChips(() => setBet(0));
+        setBet(0);
+        chipAreaRef.current?.flyChips(() => {});
       } catch {
         setBet(0);
         chipAreaRef.current?.clearChips();
