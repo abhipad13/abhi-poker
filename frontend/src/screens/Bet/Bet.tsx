@@ -1,13 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { makeMove, getGameSnapshot, type GameSnapshot, GameWebSocket } from '../../services/api/game';
-import { Client } from '@stomp/stompjs';
-// @ts-ignore
-import SockJS from 'sockjs-client';
-
-const RAW_API_BASE = (import.meta as any).env.VITE_API_BASE ?? "";
-const API_BASE = String(RAW_API_BASE).replace(/\/$/, "");
-const WS_HTTP_BASE = API_BASE || ""; // when empty, relative '/ws' hits same-origin
+import { makeMove, getGameSnapshot, type GameSnapshot } from '../../services/api/game';
+import { useStompTopic } from '@/hooks/useStompTopic';
 // @ts-ignore - import audio as URL via Vite
 import chipSfxUrl from '../../../chip-audio.wav?url';
 
@@ -33,8 +27,6 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
     500: []
   });
 
-  // WebSocket reference for real-time updates
-  const wsRef = useRef<GameWebSocket | null>(null);
   const nav = useNavigate();
 
   // Flag to prevent WebSocket updates during animations
@@ -411,107 +403,49 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
     }
   };
 
-  // Set up WebSocket subscription for real-time updates
+  // Fetch initial game state
   useEffect(() => {
-    // Fetch initial state
     fetchGameState();
+  }, [gameId]);
 
-    // Set up WebSocket subscription to .snapshot topic
-    wsRef.current = new GameWebSocket(gameId);
-    wsRef.current.connect(
-      (snapshot: GameSnapshot) => {
-        console.log('Received real-time snapshot update:', snapshot);
-        setGameState(snapshot);
-        // Keep a ref of the latest turn player for log gating
-        try { currentTurnPlayerRef.current = snapshot.turnPlayer || null; } catch {}
-        // Detect round transition to trigger overlay (skip first load)
-        try {
-          const newRound = snapshot.roundName;
-          const prevRound = prevRoundNameRef.current;
-          if (prevRound && newRound && prevRound !== newRound) {
-            setRoundOverlay({ visible: true, text: newRound });
-            setTimeout(() => {
-              setRoundOverlay((r) => ({ ...r, visible: false }));
-            }, 2500);
-          }
-          prevRoundNameRef.current = newRound || null;
-        } catch {}
+  // Real-time snapshot updates
+  useStompTopic<GameSnapshot>(`/topic/game.${gameId}.snapshot`, (snapshot) => {
+    setGameState(snapshot);
+    currentTurnPlayerRef.current = snapshot.turnPlayer || null;
 
-        // If we hit showdown, navigate to showdown screen
-        try {
-          if (snapshot.roundName && snapshot.roundName.toLowerCase() === 'showdown') {
-            nav(`/showdown/${gameId}/${playerName}`);
-            return;
-          }
-        } catch {}
+    const newRound = snapshot.roundName;
+    const prevRound = prevRoundNameRef.current;
+    if (prevRound && newRound && prevRound !== newRound) {
+      setRoundOverlay({ visible: true, text: newRound });
+      setTimeout(() => setRoundOverlay((r) => ({ ...r, visible: false })), 2500);
+    }
+    prevRoundNameRef.current = newRound || null;
 
-        // Update dynamic chip denominations if provided (cents → dollars)
-        if (snapshot.chipValues) {
-          const { white, red, green, blue, black } = snapshot.chipValues as Record<string, number>;
-          setChipDenoms({
-            1: (white ?? 100) / 100,
-            5: (red ?? 500) / 100,
-            25: (green ?? 2500) / 100,
-            100: (blue ?? 10000) / 100,
-            500: (black ?? 50000) / 100,
-          });
-        }
+    if (snapshot.roundName?.toLowerCase() === 'showdown') {
+      nav(`/showdown/${gameId}/${playerName}`);
+      return;
+    }
 
-        // no-op: previous bet state removed
-      },
-      (error) => {
-        console.error('WebSocket error:', error);
-        setError('Lost connection to game updates');
-      }
-    );
-
-    // Subscribe to log topic for notifications using STOMP/SockJS (same as snapshots)
-    const logClient = new Client({
-      webSocketFactory: () => new SockJS(`${WS_HTTP_BASE}/ws`),
-      reconnectDelay: 2000,
-      debug: (str) => console.log('STOMP Debug (log):', str),
-    });
-
-    logClient.onConnect = () => {
-      const destination = `/topic/game.${gameId}.log`;
-      console.log('📡 Subscribing to log topic:', destination);
-      logClient.subscribe(destination, (message) => {
-        try {
-          const payload = JSON.parse(message.body);
-          const text = payload?.message ?? message.body;
-          const isError = Boolean(payload?.error);
-          if (!text) return;
-          if (isError) {
-            const turnName = currentTurnPlayerRef.current;
-            if (turnName && turnName === playerName) {
-              showNotification(String(text), true);
-            }
-          } else {
-            showNotification(String(text), false);
-          }
-        } catch {
-          if (message.body) showNotification(message.body);
-        }
+    if (snapshot.chipValues) {
+      const { white, red, green, blue, black } = snapshot.chipValues as Record<string, number>;
+      setChipDenoms({
+        1: (white ?? 100) / 100,
+        5: (red ?? 500) / 100,
+        25: (green ?? 2500) / 100,
+        100: (blue ?? 10000) / 100,
+        500: (black ?? 50000) / 100,
       });
-    };
+    }
+  });
 
-    logClient.onStompError = (frame) => {
-      console.error('❌ STOMP log error:', frame.headers.message);
-    };
-
-    logClient.onWebSocketError = (error) => {
-      console.error('❌ WebSocket log error:', error);
-    };
-
-    logClient.activate();
-
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.disconnect();
-      }
-      try { logClient.deactivate(); } catch {}
-    };
-  }, [gameId, playerName]);
+  // Log notifications
+  useStompTopic<{ message?: string; error?: boolean }>(`/topic/game.${gameId}.log`, (payload) => {
+    const text = payload?.message;
+    const isError = Boolean(payload?.error);
+    if (!text) return;
+    if (isError && currentTurnPlayerRef.current !== playerName) return;
+    showNotification(String(text), isError);
+  });
 
 
 
