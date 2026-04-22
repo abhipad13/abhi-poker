@@ -17,6 +17,7 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
   const [bet, setBet] = useState(0);
   const [notification, setNotification] = useState<{ text: string; isError: boolean } | null>(null);
   const [notifVisible, setNotifVisible] = useState(false);
+  const [notifCooling, setNotifCooling] = useState(false);
   const [roundOverlay, setRoundOverlay] = useState<{ visible: boolean; text: string }>({ visible: false, text: "" });
   const [chipDenoms, setChipDenoms] = useState<Record<Denomination, number>>({ 1: 1, 5: 5, 25: 25, 100: 100, 500: 500 });
 
@@ -107,7 +108,11 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
     setNotifVisible(true);
     notifTimerRef.current = setTimeout(() => {
       setNotifVisible(false);
-      setTimeout(() => setNotification(null), 150);
+      setNotifCooling(true);
+      setTimeout(() => {
+        setNotification(null);
+        setNotifCooling(false);
+      }, 300);
     }, 1500);
   }
 
@@ -206,7 +211,7 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
           </div>
 
           <div className="notifications-container flex justify-center">
-            {isMyTurn && !notifVisible && (() => {
+            {isMyTurn && !notifVisible && !notifCooling && (() => {
               const isPreFlop = gameState.roundName === "Pre-Flop";
               const sbName = gameState.players[0]?.name;
               const bbName = gameState.players[1]?.name;
