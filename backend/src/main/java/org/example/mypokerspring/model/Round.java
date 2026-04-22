@@ -88,6 +88,13 @@ public class Round {
         }
 
         if (isPostingBlind) {
+            if (betCents != requiredBlindCents && betCents != player.getMoneyCents()) {
+                String blindType = player.equals(smallBlindPlayer) ? "small" : "big";
+                gameLog.log(LogEventType.ERROR,
+                        "❌ You must post exactly the " + blindType + " blind of $" +
+                                MoneyUtils.formatCentsAsDollars(requiredBlindCents) + ".", true, true);
+                throw new IllegalArgumentException("Must post exact blind amount.");
+            }
             int actualBlindCents = Math.min(requiredBlindCents, player.getMoneyCents());
             boolean isShortAllIn = actualBlindCents < requiredBlindCents;
             String blindType = player.equals(smallBlindPlayer) ? "Small" : "Big";
