@@ -463,7 +463,7 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
            backgroundPosition: '0 0, 25px 25px',
            backgroundSize: '50px 50px'
          }}>
-      <div className="w-full max-w-[1000px] bg-black/45 border border-white/12 rounded-[18px] shadow-2xl backdrop-blur-sm px-6 py-3 relative overflow-hidden">
+      <div className="w-full max-w-[1000px] bg-black/45 border border-white/12 rounded-[18px] shadow-2xl backdrop-blur-sm p-6 relative overflow-hidden">
         {/* Round Overlay */}
         {roundOverlay.visible && (
           <div className="round-overlay">
@@ -622,7 +622,7 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
           </div>
         </div>
 
-        <p className="mt-3 text-xs text-white/75 text-center">
+        <p className="mt-3 pt-4 text-xs text-white/75 text-center" style={{ paddingTop: '16px' }}>
           {canAct ? "Click chips to add them to your bet. Hit 'Bet' to commit your chips to the pot!" : (
             <span>
               Waiting for {gameState.turnPlayer} to act
