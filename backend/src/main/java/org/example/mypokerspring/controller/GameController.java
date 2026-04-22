@@ -2,7 +2,6 @@ package org.example.mypokerspring.controller;
 
 import org.example.mypokerspring.ws.GameBroadcaster;
 import org.example.mypokerspring.ws.GameEventFactory;
-import org.example.mypokerspring.ws.dto.ShowdownInfoPayload;
 import org.example.mypokerspring.ws.dto.ShowdownInfoResponse;
 import org.example.mypokerspring.ws.dto.TableSnapshotResponse;
 import org.slf4j.Logger;
