@@ -19,10 +19,9 @@ export default function BettingControls({
   const btnBase = "border-none rounded-xl px-[18px] py-[14px] font-black cursor-pointer transition-all duration-75 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-3 items-center mt-5">
+    <div className="grid grid-cols-[1fr_auto] gap-3 items-center mt-0">
       <div className="bg-black/50 border border-white/12 rounded-xl p-[14px] flex items-center gap-[10px]">
         <div>
-          <label className="text-xs text-white/75">Current Bet</label>
           <div className="text-[28px] font-black" id="betAmt">{fmt(currentBetDisplay)}</div>
         </div>
       </div>

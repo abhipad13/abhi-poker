@@ -189,7 +189,7 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
 
   return (
     <div
-      className="min-h-screen bg-[#0b6b3a] flex items-center justify-center p-6"
+      className="min-h-screen bg-[#0b6b3a] flex items-center justify-center p-0"
       style={{
         backgroundImage: `radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px), radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px)`,
         backgroundPosition: "0 0, 25px 25px",
@@ -273,7 +273,7 @@ export default function Bet({ gameId, playerName }: { gameId: string; playerName
           onFold={handleFold}
         />
 
-        <p className="mt-[10px] text-xs text-white/75 text-center">
+        <p className="mt-3 pt-4 text-xs text-white/75 text-center" style={{ paddingTop: '16px' }}>
           {canAct ? (
             "Click chips to add them to your bet. Hit 'Bet' to commit your chips to the pot!"
           ) : (

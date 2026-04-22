@@ -136,10 +136,9 @@ const ChipArea = forwardRef<ChipAreaHandle, Props>(({ denomConfigs, onChipClick 
   }));
 
   return (
-    <div className="flex justify-around items-end my-5 min-h-[200px] px-5">
+    <div className="flex justify-around items-end my-4 min-h-[150px] h-[150px] px-5">
       {denomConfigs.map(({ denom, displayValue }) => (
         <div key={denom} className="flex flex-col items-center gap-2">
-          <div className="text-xs text-white/75 font-semibold">${displayValue}</div>
           <div
             className="relative h-[140px] w-[70px] grid place-items-center cursor-pointer"
             data-chip-value={denom}
