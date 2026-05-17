@@ -42,8 +42,7 @@ public class GameController {
         Game game = gameService.getGame(gameId);
         game.getLock().lock();
         try {
-            String result = game.addPlayer(name);
-            return result;
+            return game.addPlayer(name);
         } finally {
             game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
