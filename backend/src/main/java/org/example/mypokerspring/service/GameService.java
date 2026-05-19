@@ -1,5 +1,8 @@
 package org.example.mypokerspring.service;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.example.mypokerspring.exception.NotFoundException;
 import org.example.mypokerspring.model.Game;
 import org.example.mypokerspring.ws.GameBroadcaster;
@@ -22,9 +25,14 @@ public class GameService {
     private final Map<String, Game> games = new ConcurrentHashMap<>();
     private final Map<String, Instant> lastActivity = new ConcurrentHashMap<>();
     private final GameBroadcaster broadcaster;
+    private final Counter gamesCreatedCounter;
+    private final Counter gamesEvictedCounter;
 
-    public GameService(GameBroadcaster broadcaster) {
+    public GameService(GameBroadcaster broadcaster, MeterRegistry meterRegistry) {
         this.broadcaster = broadcaster;
+        this.gamesCreatedCounter = meterRegistry.counter("poker.games.created");
+        this.gamesEvictedCounter = meterRegistry.counter("poker.games.evicted");
+        Gauge.builder("poker.games.active", games, Map::size).register(meterRegistry);
     }
 
     public Game createGame(String gameId, String managerId) {
@@ -33,6 +41,7 @@ public class GameService {
         game.setManagerId(managerId);
         games.put(gameId, game);
         lastActivity.put(gameId, Instant.now());
+        gamesCreatedCounter.increment();
         return game;
     }
 
@@ -57,6 +66,7 @@ public class GameService {
             if (entry.getValue().isBefore(cutoff)) {
                 games.remove(entry.getKey());
                 log.info("Evicted expired game {}", entry.getKey());
+                gamesEvictedCounter.increment();
                 return true;
             }
             return false;
