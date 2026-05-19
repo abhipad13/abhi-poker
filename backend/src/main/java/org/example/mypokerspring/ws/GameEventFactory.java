@@ -127,7 +127,7 @@ public class GameEventFactory {
         Map<User,Integer> contribs = (r != null) ? r.getContributionsCents() : Map.of();
 
         // Pot = sum(pots) + sum(contributions)
-        int potsSum = hand.getHandPots().stream().mapToInt(p -> p.getPotTotalCents()).sum();
+        int potsSum = hand.getHandPots().stream().mapToInt(Pot::getPotTotalCents).sum();
         int contribSum = contribs.values().stream().mapToInt(v -> v).sum();
         int totalPot = potsSum + contribSum;
 
@@ -165,7 +165,7 @@ public class GameEventFactory {
 
     public static ShowdownInfoPayload showdownInfo(String gameId, Hand hand, List<User> tablePlayers) {
         // Compute total pot
-        int potsSum = hand.getHandPots().stream().mapToInt(p -> p.getPotTotalCents()).sum();
+        int potsSum = hand.getHandPots().stream().mapToInt(Pot::getPotTotalCents).sum();
         int contribSum = 0;
         if (hand.getCurrentRound() != null) {
             contribSum = hand.getCurrentRound().getContributionsCents()

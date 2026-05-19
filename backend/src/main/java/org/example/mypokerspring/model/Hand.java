@@ -1,4 +1,3 @@
-// src/main/java/org/example/mypokerspring/model/Hand.java
 package org.example.mypokerspring.model;
 
 import org.example.mypokerspring.ws.GameBroadcaster;

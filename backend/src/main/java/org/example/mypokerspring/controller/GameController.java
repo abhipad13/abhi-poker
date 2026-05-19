@@ -1,8 +1,8 @@
 package org.example.mypokerspring.controller;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.example.mypokerspring.ws.GameBroadcaster;
 import org.example.mypokerspring.ws.GameEventFactory;
-import org.example.mypokerspring.ws.dto.ShowdownInfoPayload;
 import org.example.mypokerspring.ws.dto.ShowdownInfoResponse;
 import org.example.mypokerspring.ws.dto.TableSnapshotResponse;
 import org.slf4j.Logger;
@@ -22,10 +22,12 @@ public class GameController {
     private final GameService gameService;
     private static final Logger log = LoggerFactory.getLogger(GameController.class);
     private final GameBroadcaster broadcaster;
+    private final MeterRegistry meterRegistry;
 
-    public GameController(GameService gameService, GameBroadcaster gameBroadcaster) {
+    public GameController(GameService gameService, GameBroadcaster gameBroadcaster, MeterRegistry meterRegistry) {
         this.gameService = gameService;
         this.broadcaster = gameBroadcaster;
+        this.meterRegistry = meterRegistry;
     }
 
     @PostMapping("/create")
@@ -43,8 +45,7 @@ public class GameController {
         Game game = gameService.getGame(gameId);
         game.getLock().lock();
         try {
-            String result = game.addPlayer(name);
-            return result;
+            return game.addPlayer(name);
         } finally {
             game.getGameLog().flushBroadcasts();
             game.getLock().unlock();
@@ -106,6 +107,7 @@ public class GameController {
         try {
             game.requireManager(requesterName);
             game.startNewHand();
+            meterRegistry.counter("poker.hands.started").increment();
             broadcaster.sendSnapshot(GameEventFactory.snapshot(game));
             broadcaster.sendTableUpdate(
                     GameEventFactory.tableUpdate(game.getGameId(), game.getSettings(), game.getPlayers(), game.getManagerId())
@@ -128,6 +130,7 @@ public class GameController {
             User player = game.requirePlayer(moveRequest.getPlayerId());
 
             hand.applyMove(player, moveRequest.getSelection(), moveRequest.getBet());
+            meterRegistry.counter("poker.moves", "type", moveRequest.getSelection().name()).increment();
 
             broadcaster.sendSnapshot(GameEventFactory.snapshot(game));
 

@@ -7,7 +7,9 @@ backend/build/
 backend/bin/
 backend/out/
 
-# Backend — IDE
+# IDE
+.idea/
+.vscode/
 backend/.idea/
 backend/.vscode/
 backend/*.iws
