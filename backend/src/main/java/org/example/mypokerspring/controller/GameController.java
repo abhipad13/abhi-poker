@@ -478,7 +478,10 @@ public class GameController {
                         0,
                         0,
                         smallBlindCents,
-                        bigBlindCents
+                        bigBlindCents,
+                        null,
+                        null,
+                        null
                 );
             }
 
@@ -524,6 +527,10 @@ public class GameController {
             int minRaiseAmt = (r != null) ? r.minRaiseAmtCents() : 0;
             int minCallAmt = (r != null) ? r.getHighestBetCents() : 0;
 
+            String lastAggressorName      = (r != null) ? r.getLastAggressorName()      : null;
+            String lastAggressorAction    = (r != null) ? r.getLastAggressorAction()    : null;
+            Integer lastAggressorAmtCents = (r != null) ? r.getLastAggressorAmtCents()  : null;
+
             return new TableSnapshotResponse(
                     game.getGameId(),
                     roundName,
@@ -534,7 +541,10 @@ public class GameController {
                     minRaiseAmt,
                     minCallAmt,
                     smallBlindCents,
-                    bigBlindCents
+                    bigBlindCents,
+                    lastAggressorName,
+                    lastAggressorAction,
+                    lastAggressorAmtCents
             );
         } finally {
             game.getLock().unlock();

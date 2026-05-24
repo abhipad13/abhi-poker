@@ -112,6 +112,9 @@ export type GameSnapshot = {
   minRaiseAmt?: number;
   smallBlindCents?: number;
   bigBlindCents?: number;
+  lastAggressorName?: string | null;
+  lastAggressorAction?: "bet" | "raised" | "reraised" | "allin" | "blind" | null;
+  lastAggressorAmtCents?: number | null;
   players: {
     name: string;
     displayCents: number;

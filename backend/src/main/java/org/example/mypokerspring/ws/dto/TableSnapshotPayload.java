@@ -14,7 +14,10 @@ public record TableSnapshotPayload(
         int minRaiseAmt,
         int minCallAmt,
         Integer smallBlindCents,
-        Integer bigBlindCents
+        Integer bigBlindCents,
+        String lastAggressorName,
+        String lastAggressorAction,
+        Integer lastAggressorAmtCents
 ) {
     public record PlayerView(
             String name,

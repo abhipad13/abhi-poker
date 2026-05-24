@@ -1,4 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
+import "@/styles/d6.css";
 import { GameIdentityProvider } from "@/context/GameIdentityContext";
 import { AppRoutes } from "./routes";
 

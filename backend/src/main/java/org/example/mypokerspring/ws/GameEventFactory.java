@@ -100,13 +100,16 @@ public class GameEventFactory {
                     gameId,
                     "Waiting",
                     null,
-                    0,              // totalPot
+                    0,
                     players,
                     chipValues,
-                    0,              // minRaiseAmt
-                    0,              // minCallAmt
+                    0,
+                    0,
                     smallBlindCents,
-                    bigBlindCents
+                    bigBlindCents,
+                    null,
+                    null,
+                    null
             );
         }
 
@@ -146,8 +149,13 @@ public class GameEventFactory {
 
         // Raise/call amounts
         int highestBetCents = (r != null) ? r.getHighestBetCents() : 0;
-        int minRaiseAmt = (r != null) ? r.minRaiseAmtCents() : 0; // already highest + last raise
-        int minCallAmt  = highestBetCents;                         // call amount = current highest bet
+        int minRaiseAmt = (r != null) ? r.minRaiseAmtCents() : 0;
+        int minCallAmt  = highestBetCents;
+
+        // Last aggressor for this betting street
+        String lastAggressorName      = (r != null) ? r.getLastAggressorName()      : null;
+        String lastAggressorAction    = (r != null) ? r.getLastAggressorAction()    : null;
+        Integer lastAggressorAmtCents = (r != null) ? r.getLastAggressorAmtCents()  : null;
 
         return new TableSnapshotPayload(
                 gameId,
@@ -159,7 +167,10 @@ public class GameEventFactory {
                 minRaiseAmt,
                 minCallAmt,
                 smallBlindCents,
-                bigBlindCents
+                bigBlindCents,
+                lastAggressorName,
+                lastAggressorAction,
+                lastAggressorAmtCents
         );
     }
 

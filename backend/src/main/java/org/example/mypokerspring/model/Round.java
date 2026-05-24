@@ -18,6 +18,10 @@ public class Round {
     private Set<User> blindPosted;
     private GameLog gameLog;
 
+    private String lastAggressorName;
+    private String lastAggressorAction;
+    private int lastAggressorAmtCents;
+
     public Round(ArrayList<User> activePlayers, ArrayList<User> eligiblePlayers, GameSettings settings, int currentRound, GameLog gameLog) {
         this.activePlayers = activePlayers;
         this.eligiblePlayers = eligiblePlayers;
@@ -41,6 +45,12 @@ public class Round {
 
     public int getPlayerIndex() {
         return playerIndex;
+    }
+
+    public String getLastAggressorName()     { return lastAggressorName; }
+    public String getLastAggressorAction()   { return lastAggressorAction; }
+    public Integer getLastAggressorAmtCents() {
+        return lastAggressorAmtCents > 0 ? lastAggressorAmtCents : null;
     }
 
     public int getHighestBetCents() {
@@ -91,7 +101,7 @@ public class Round {
             if (betCents != requiredBlindCents && betCents != player.getMoneyCents()) {
                 String blindType = player.equals(smallBlindPlayer) ? "small" : "big";
                 gameLog.log(LogEventType.ERROR,
-                        "❌ You must post exactly the " + blindType + " blind of $" +
+                        " You must post exactly the " + blindType + " blind of $" +
                                 MoneyUtils.formatCentsAsDollars(requiredBlindCents) + ".", true, true);
                 throw new IllegalArgumentException("Must post exact blind amount.");
             }
@@ -99,11 +109,14 @@ public class Round {
             boolean isShortAllIn = actualBlindCents < requiredBlindCents;
             String blindType = player.equals(smallBlindPlayer) ? "Small" : "Big";
             gameLog.log(LogEventType.PLAYER_ACTION,
-                    "💰 " + player.getName() + " posted " + blindType + " Blind of $" +
+                    " " + player.getName() + " posted " + blindType + " Blind of $" +
                             MoneyUtils.formatCentsAsDollars(actualBlindCents) +
                             (isShortAllIn ? " (all-in)" : ""), true, false);
             blindPosted.add(player);
             contributionsCents.put(player, actualBlindCents);
+            lastAggressorName = player.getName();
+            lastAggressorAction = "blind";
+            lastAggressorAmtCents = actualBlindCents;
             if (isShortAllIn) {
                 activePlayers.remove(player);
             }
@@ -133,14 +146,19 @@ public class Round {
                 prevRaiseCents = betCents - highestBetCents;
                 highestBetCents = betCents;
                 raiseReopened = true;
+                // Full raise all-in — genuinely aggressive
+                lastAggressorName = player.getName();
+                lastAggressorAction = "allin";
+                lastAggressorAmtCents = betCents;
             } else {
                 highestBetCents = Math.max(highestBetCents, betCents);
                 raiseReopened = false;
+                // Short all-in — forced call, not aggressive
             }
 
             activePlayers.remove(player);
             gameLog.log(LogEventType.PLAYER_ACTION,
-                    "💥 " + player.getName() + " went all-in with $" +
+                    " " + player.getName() + " went all-in with $" +
                             MoneyUtils.formatCentsAsDollars(betCents), true, false);
             return;
         }
@@ -155,13 +173,16 @@ public class Round {
 
             if (isValidCall(betCents)) {
                 contributionsCents.put(player, betCents);
-                if (openBet){
+                if (openBet && betCents > 0) {
+                    lastAggressorName = player.getName();
+                    lastAggressorAction = "bet";
+                    lastAggressorAmtCents = betCents;
                     gameLog.log(LogEventType.PLAYER_ACTION,
                             "\uD83D\uDCB0 " + player.getName() + " bets $" +
                                     MoneyUtils.formatCentsAsDollars(betCents), true, false);
                 } else {
                     gameLog.log(LogEventType.PLAYER_ACTION,
-                            "📞 " + player.getName() + " called $" +
+                            " " + player.getName() + " called $" +
                                     MoneyUtils.formatCentsAsDollars(betCents), true, false);
                 }
             } else if (isValidRaise(betCents)) {
@@ -169,8 +190,14 @@ public class Round {
                 prevRaiseCents = betCents - highestBetCents;
                 highestBetCents = betCents;
                 raiseReopened = true;
+                String aggressorAction = (lastAggressorAction == null
+                        || "blind".equals(lastAggressorAction)
+                        || "bet".equals(lastAggressorAction)) ? "raised" : "reraised";
+                lastAggressorName = player.getName();
+                lastAggressorAction = aggressorAction;
+                lastAggressorAmtCents = betCents;
                 gameLog.log(LogEventType.PLAYER_ACTION,
-                        "🔺 " + player.getName() + " raised to $" +
+                        " " + player.getName() + " raised to $" +
                                 MoneyUtils.formatCentsAsDollars(betCents), true, false);
             } else {
                 gameLog.log(LogEventType.ERROR, "Invalid bet. Check min call/raise.", true, true);
@@ -187,14 +214,14 @@ public class Round {
         if (isPreFlop && !blindPosted.contains(player)) {
             if (player.equals(smallBlindPlayer) || player.equals(bigBlindPlayer)) {
                 gameLog.log(LogEventType.ERROR, "Must post blind before folding.", true, true);
-                throw new IllegalArgumentException("❌ You must post your blind before you can fold.");
+                throw new IllegalArgumentException(" You must post your blind before you can fold.");
             }
         }
 
         activePlayers.remove(player);
         eligiblePlayers.remove(player);
         gameLog.log(LogEventType.PLAYER_ACTION,
-                "❌ " + player.getName() + " folded.", true, false);
+                " " + player.getName() + " folded.", true, false);
     }
 
     private void handleCheck(User player) {
@@ -202,13 +229,13 @@ public class Round {
         if (isPreFlop && !blindPosted.contains(player)) {
             if (player.equals(smallBlindPlayer) || player.equals(bigBlindPlayer)) {
                 gameLog.log(LogEventType.ERROR, "Must post blind.", true, true);
-                throw new IllegalArgumentException("❌ You must post your blind before you can check.");
+                throw new IllegalArgumentException(" You must post your blind before you can check.");
             }
         }
 
         handleBet(player, 0);
         gameLog.log(LogEventType.PLAYER_ACTION,
-                "🔘 " + player.getName() + " checked.", true, false);
+                " " + player.getName() + " checked.", true, false);
     }
 
     public boolean bettingClosed() {
@@ -270,7 +297,7 @@ public class Round {
         // ✅ Enforce turn order HERE
         User currentPlayer = activePlayers.get(playerIndex);
         if (!currentPlayer.equals(player)) {
-            throw new IllegalArgumentException("❌ It's not your turn.");
+            throw new IllegalArgumentException(" It's not your turn.");
         }
 
         // ✅ Process move only if correct player

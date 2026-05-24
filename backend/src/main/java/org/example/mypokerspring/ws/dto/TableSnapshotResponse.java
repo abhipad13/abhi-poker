@@ -12,9 +12,12 @@ public record TableSnapshotResponse(
         List<PlayerView> players,
         Map<String, Integer> chipValues,
         int minRaiseAmt,
-        int minCallAmt,// includes per-player contribution + displayCents
+        int minCallAmt,
         Integer smallBlindCents,
-        Integer bigBlindCents
+        Integer bigBlindCents,
+        String lastAggressorName,
+        String lastAggressorAction,
+        Integer lastAggressorAmtCents
 ) {
     public record PlayerView(
             String name,
