@@ -16,7 +16,6 @@ const DENOMS_DESC: Denom[] = [500, 100, 25, 5, 1];
 
 const fmtDollars = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-const fmtCents = (c: number) => fmtDollars(c / 100);
 
 export default function BetV3({ gameId, playerName }: { gameId: string; playerName: string }) {
   const [gameState, setGameState] = useState<GameSnapshot | null>(null);
@@ -284,38 +283,61 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     { id: "allin", label: "ALL-IN",  value: stackDollars },
   ];
 
-  // ── Turn badge helper (pre-flop blind logic) ──────────────────────────────
-  function renderTurnBadge() {
+  // ── Action context pill ───────────────────────────────────────────────────
+  function renderActionPill() {
     if (!isMyTurn || !gameState) return null;
+
     const isPreFlop = gameState.roundName === "Pre-Flop";
-    const sbName = gameState.players[0]?.name;
-    const bbName = gameState.players[1]?.name;
+    const sbName  = gameState.players[0]?.name;
+    const bbName  = gameState.players[1]?.name;
     const sbPosted = (gameState.players[0]?.contributionCents ?? 0) > 0;
     const bbPosted = (gameState.players[1]?.contributionCents ?? 0) > 0;
 
+    const toCallDollars = Math.max(
+      0,
+      ((gameState.minCallAmt ?? 0) - (currentPlayer?.contributionCents ?? 0)) / 100
+    );
+    const aggAction = gameState.lastAggressorAction ?? null;
+    const aggName   = gameState.lastAggressorName   ?? null;
+    const aggAmt    = (gameState.lastAggressorAmtCents ?? 0) / 100;
+
+    const dot  = <span style={{ opacity: 0.4, margin: "0 6px" }}>·</span>;
+    const call = <><span style={{ color: "var(--gold)" }}>{fmtDollars(toCallDollars)}</span>{" to call"}</>;
+
+    // 1. SB hasn't posted yet
     if (isPreFlop && playerName === sbName && !sbPosted && gameState.smallBlindCents != null) {
-      return <div className="turnBadge">Small Blind: {fmtCents(gameState.smallBlindCents)}</div>;
+      return <div className="turnBadge">Post small blind: {fmtDollars(gameState.smallBlindCents / 100)}</div>;
     }
+
+    // 2. BB hasn't posted yet
     if (isPreFlop && playerName === bbName && !bbPosted && gameState.bigBlindCents != null) {
-      return <div className="turnBadge">Big Blind: {fmtCents(gameState.bigBlindCents)}</div>;
+      return <div className="turnBadge">Post big blind: {fmtDollars(gameState.bigBlindCents / 100)}</div>;
     }
-    if (gameState.minCallAmt != null && gameState.minRaiseAmt != null) {
+
+    // 3. No aggressor (or blind was the aggressor), preflop — blinds posted
+    if ((!aggName || aggAction === "blind") && isPreFlop) {
+      const bbAmt = aggAction === "blind" ? aggAmt : (gameState.bigBlindCents ?? 0) / 100;
+      return <div className="turnBadge">BB posted {fmtDollars(bbAmt)}{dot}{call}</div>;
+    }
+
+    // 4. No aggressor, not preflop — first to act
+    if (!aggName && !isPreFlop) {
       return (
-        <div
-          className="turnBadge"
-          role="button"
-          tabIndex={0}
-          onClick={() => setHandsOpen(true)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHandsOpen(true); } }}
-        >
-          <span className="num" style={{ color: "#fff", fontSize: 15 }}>{fmtCents(gameState.minCallAmt)}</span>
-          {" "}call · {" "}
-          <span className="num" style={{ color: "#fff", fontSize: 15 }}>{fmtCents(gameState.minRaiseAmt)}</span>
-          {" "}raise
+        <div className="turnBadge">
+          Min bet: {fmtDollars((gameState.minRaiseAmt ?? 0) / 100)}{dot}or check
         </div>
       );
     }
-    return null;
+
+    // 5–8. Aggressor exists
+    let left = "";
+    if      (aggAction === "bet")      left = `${aggName} bet ${fmtDollars(aggAmt)}`;
+    else if (aggAction === "raised")   left = `${aggName} raised to ${fmtDollars(aggAmt)}`;
+    else if (aggAction === "reraised") left = `${aggName} re-raised to ${fmtDollars(aggAmt)}`;
+    else if (aggAction === "allin")    left = `${aggName} all-in ${fmtDollars(aggAmt)}`;
+    else return null;
+
+    return <div className="turnBadge">{left}{dot}{call}</div>;
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -342,7 +364,7 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
             {notification ? (
               <div className={`notif ${notifVisible ? "show" : ""}`}>{notification}</div>
             ) : (
-              renderTurnBadge()
+              renderActionPill()
             )}
             {!isMyTurn && !notification && (
               <div style={{ color: "var(--muted)", fontSize: 13 }}>
