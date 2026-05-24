@@ -164,6 +164,17 @@ public class Round {
         }
 
         if (player.canBet(betCents)) {
+            // Opening bet must be at least the big blind (checks arrive as betCents=0, so exempt)
+            if (highestBetCents == 0 && betCents > 0
+                    && settings != null && betCents < settings.getBigBlindCents()) {
+                gameLog.log(LogEventType.ERROR,
+                        "Minimum opening bet is $" + MoneyUtils.formatCentsAsDollars(settings.getBigBlindCents())
+                                + " (big blind).", true, true);
+                throw new IllegalArgumentException(
+                        "Minimum opening bet is the big blind: $"
+                                + MoneyUtils.formatCentsAsDollars(settings.getBigBlindCents()));
+            }
+
             boolean openBet = false;
             if (highestBetCents == 0) {
                 highestBetCents = betCents;

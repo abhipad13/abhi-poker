@@ -243,8 +243,12 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
+  const minOpenBetDollars = (gameState?.bigBlindCents ?? 0) / 100;
+  const isOpenBet = !gameState?.lastAggressorName || gameState?.lastAggressorAction === "blind";
+  const betTooSmall = isOpenBet && bet > 0 && bet < minOpenBetDollars;
+
   async function handleBet() {
-    if (animating || bet <= 0 || bet > stackDollars || !canAct) return;
+    if (animating || bet <= 0 || bet > stackDollars || !canAct || betTooSmall) return;
     const totalCents = Math.round((bet + contributionDollars) * 100);
     try {
       await makeMove(gameId, { playerId: playerName, selection: "CALL_RAISE", bet: totalCents });
@@ -324,7 +328,7 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     if (!aggName && !isPreFlop) {
       return (
         <div className="turnBadge">
-          Min bet: {fmtDollars((gameState.minRaiseAmt ?? 0) / 100)}{dot}or check
+          Min bet: {fmtDollars((gameState.bigBlindCents ?? 0) / 100)}{dot}or check
         </div>
       );
     }
@@ -521,7 +525,7 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
             <button
               className="btn gold"
               onClick={handleBet}
-              disabled={bet === 0 || animating || !canAct}
+              disabled={bet === 0 || animating || !canAct || betTooSmall}
               style={{ minWidth: 80 }}
             >
               Bet
