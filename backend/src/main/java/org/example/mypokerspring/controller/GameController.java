@@ -312,6 +312,23 @@ public class GameController {
         }
     }
 
+    @PostMapping("/{gameId}/player/chips/add")
+    public String addPlayerChips(@PathVariable String gameId,
+                                  @RequestParam String requesterId,
+                                  @RequestParam String name,
+                                  @RequestParam int amountCents) {
+        log.info("📥 POST /api/game/{}/player/chips/add requesterId={} name={} amountCents={}", gameId, requesterId, name, amountCents);
+        Game game = gameService.getGame(gameId);
+        game.getLock().lock();
+        try {
+            game.addPlayerMoneyCents(name, amountCents, requesterId);
+            return "✅ $" + amountCents / 100.0 + " added to " + name + "'s stack.";
+        } finally {
+            game.getGameLog().flushBroadcasts();
+            game.getLock().unlock();
+        }
+    }
+
     @DeleteMapping("/{gameId}/player")
     public String removePlayer(@PathVariable String gameId,
                                @RequestParam String requesterId,
@@ -372,6 +389,26 @@ public class GameController {
         game.getLock().lock();
         try {
             return game.getSettings().getChipValues();
+        } finally {
+            game.getLock().unlock();
+        }
+    }
+
+    @GetMapping("/{gameId}/settlement")
+    public List<Map<String, Object>> getSettlement(@PathVariable String gameId) {
+        log.info("📥 GET /api/game/{}/settlement", gameId);
+        Game game = gameService.getGame(gameId);
+        game.getLock().lock();
+        try {
+            return game.getPlayers().stream()
+                    .map(p -> {
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("name", p.getName());
+                        entry.put("moneyCents", p.getMoneyCents());
+                        entry.put("boughtMoneyCents", p.getBoughtMoneyCents());
+                        return entry;
+                    })
+                    .toList();
         } finally {
             game.getLock().unlock();
         }

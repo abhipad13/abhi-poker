@@ -3,6 +3,7 @@ public class User {
 
     private String name;
     private int moneyCents; // Store money in cents as integer
+    private int boughtMoneyCents;
 
     public User(String name, int startingMoneyCents) {
         this.name = name;
@@ -39,6 +40,18 @@ public class User {
 
     public void setMoneyCents(int moneyCents) {
         this.moneyCents = moneyCents;
+    }
+
+    public int getBoughtMoneyCents() {
+        return boughtMoneyCents;
+    }
+
+    public void setBoughtMoneyCents(int boughtMoneyCents) {
+        this.boughtMoneyCents = boughtMoneyCents;
+    }
+
+    public void addBoughtMoneyCents(int cents) {
+        this.boughtMoneyCents += cents;
     }
 
     @Override

@@ -270,6 +270,7 @@ public class GameEventFactory {
             basic = new LinkedHashMap<>();
             basic.put("smallBlindCents", settings.getSmallBlindCents());
             basic.put("bigBlindCents", settings.getBigBlindCents());
+            basic.put("maxBuyInCents", settings.getMaxBuyInCents());
             chips = settings.getChipValues() != null ? settings.getChipValues() : Map.of();
             defaultStart = settings.getDefaultStartingMoneyCents();
             customStarts = settings.getCustomStartingMoneyCents() != null
