@@ -63,6 +63,7 @@ public class Game {
 
         // Set their starting money and move them into the game
         queuedUser.setMoneyCents(startingMoneyCents);
+        queuedUser.setBoughtMoneyCents(startingMoneyCents);
         players.add(queuedUser);
         queuedPlayers.remove(queuedUser);
 
@@ -113,6 +114,25 @@ public class Game {
                     GameEventFactory.tableUpdate(gameId, settings, players, managerId, queuedPlayers)));
             return "🕒 Player '" + trimmedName + "' added to queue (game already in progress).";
         }
+    }
+
+    public void addPlayerMoneyCents(String name, int amountCents, String requesterId) {
+        requireManager(requesterId);
+        if (hasHandInProgress()) {
+            throw new IllegalStateException("❌ Cannot add chips during an active hand.");
+        }
+        if (amountCents <= 0) {
+            throw new IllegalArgumentException("❌ Amount to add must be positive.");
+        }
+        User player = requirePlayer(name);
+        player.setMoneyCents(player.getMoneyCents() + amountCents);
+        player.addBoughtMoneyCents(amountCents);
+        gameLog.log(LogEventType.SYSTEM,
+                "💰 $" + MoneyUtils.formatCentsAsDollars(amountCents) + " added to " + name + "'s stack by manager.", false, false);
+        gameLog.enqueueBroadcast(() -> broadcaster.sendTableUpdate(
+                GameEventFactory.tableUpdate(gameId, settings, players, managerId)));
+        gameLog.enqueueBroadcast(() -> broadcaster.sendPlayerState(
+                GameEventFactory.playerState(gameId, currentHand, players)));
     }
 
     public void setPlayerMoneyCents(String name, int amountCents, String requesterId) {
@@ -243,6 +263,7 @@ public class Game {
             int money = settings.getCustomStartingMoneyCents()
                     .getOrDefault(player.getName(), settings.getDefaultStartingMoneyCents());
             player.setMoneyCents(money);
+            player.setBoughtMoneyCents(money);
         }
     }
 

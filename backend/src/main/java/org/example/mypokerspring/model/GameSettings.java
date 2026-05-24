@@ -8,6 +8,7 @@ public class GameSettings {
     private int smallBlindCents;
     private int bigBlindCents;
     private int defaultStartingMoneyCents;
+    private int maxBuyInCents;
     private Map<String, Integer> customStartingMoneyCents = new HashMap<>();
     private Map<String, Integer> chipValues;
     private static final Set<String> VALID_CHIP_COLORS = Set.of("white", "red", "green", "blue", "black");
@@ -52,6 +53,14 @@ public class GameSettings {
         this.defaultStartingMoneyCents = defaultStartingMoneyCents;
     }
 
+    public int getMaxBuyInCents() {
+        return maxBuyInCents;
+    }
+
+    public void setMaxBuyInCents(int maxBuyInCents) {
+        this.maxBuyInCents = maxBuyInCents;
+    }
+
     public Map<String, Integer> getCustomStartingMoneyCents() {
         return customStartingMoneyCents;
     }
@@ -67,6 +76,8 @@ public class GameSettings {
             throw new IllegalArgumentException("❌ Big blind must be >= small blind.");
         if (defaultStartingMoneyCents < bigBlindCents)
             throw new IllegalArgumentException("❌ Default starting stack must be >= big blind.");
+        if (maxBuyInCents > 0 && maxBuyInCents < bigBlindCents)
+            throw new IllegalArgumentException("❌ Max buy-in must be >= big blind.");
         for (Map.Entry<String, Integer> e : customStartingMoneyCents.entrySet()) {
             if (e.getValue() == null || e.getValue() <= 0)
                 throw new IllegalArgumentException(

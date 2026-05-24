@@ -133,6 +133,7 @@ export type ShowdownInfo = {
     folded: boolean;
     allIn: boolean;
   }[];
+  showdownOver: boolean;
 };
 
 export function getShowdownInfo(gameId: string) {
