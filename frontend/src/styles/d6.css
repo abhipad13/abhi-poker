@@ -261,9 +261,29 @@
 .d6 .chipCol .chip.base  { bottom: 0; cursor: pointer; z-index: 1; }
 .d6 .chipCol .chip.stacked { pointer-events: none; transition: bottom .15s cubic-bezier(.2, .7, .3, 1); }
 
+/* ── V3-specific overrides ───────────────────────────────────────────────── */
+.d6.d6-v3 .presetTrig { color: rgba(255, 255, 255, 0.45); }
+.d6.d6-v3 .presetTrig:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); color: rgba(255, 255, 255, 0.70); border-color: rgba(255, 255, 255, 0.18); }
+.d6.d6-v3 .presetTrig.open,
+.d6.d6-v3 .presetTrig.open:hover:not(:disabled) { background: rgba(212, 175, 55, 0.16); color: var(--gold); border-color: var(--gold); box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.30); }
+
 /* ── V3-specific chip styles ─────────────────────────────────────────────── */
 .d6.d6-v3 .chipCol { height: 104px; }
 .d6.d6-v3 .chipCol .chip.base { bottom: 0; }
+
+.d6.d6-v3 .chipCount {
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  white-space: nowrap;
+}
 
 .d6.d6-v3 .chipCol .chip.ghost {
   opacity: 0.65;
@@ -302,6 +322,9 @@
 }
 
 /* V3 bet box tab */
+.d6.d6-v3 .betBox {
+  border-color: rgba(212, 175, 55, 0.22);
+}
 .d6.d6-v3 .betBoxWrap { position: relative; }
 .d6.d6-v3 .tabRow {
   position: absolute;
@@ -324,7 +347,7 @@
   letter-spacing: 0.02em;
   color: var(--muted);
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.42));
-  border: 1px solid rgba(212, 175, 55, 0.30);
+  border: 1px solid rgba(212, 175, 55, 0.22);
   border-bottom: none;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
@@ -620,3 +643,268 @@
 }
 .d6 .handsSheetImg .ovCloseFloat svg { display: block; }
 .d6 .handsSheetImg .ovCloseFloat:hover { background: rgba(255, 255, 255, 0.36); }
+
+/* ─── D6 V4 skin ─────────────────────────────────────────────────────────────
+   Visual-only reskin. Scoped to .d6.d6-v4 — does not affect V3 or any other
+   variant. All rules override their .d6 counterparts via higher specificity.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Tokens + background */
+.d6.d6-v4 {
+  --felt-1:    #080808;
+  --felt-2:    #000000;
+  --ink:       #F0F0F0;
+  --muted:     #545454;
+  --gold:      #888888;
+  --gold-deep: #606060;
+  --line:      rgba(22, 22, 22, 0.98);
+  background: radial-gradient(ellipse at center, var(--felt-1) 0%, var(--felt-2) 85%);
+  background-position: center;
+  background-size: auto;
+}
+.d6.d6-v4::before {
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+/* Frame panel */
+.d6.d6-v4[data-frame="panel"]::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.40));
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 32px rgba(0, 0, 0, 0.80);
+  backdrop-filter: blur(6px);
+}
+
+/* Divider */
+.d6.d6-v4 .divider {
+  background: linear-gradient(90deg, transparent, #1E1E1E, transparent);
+}
+.d6.d6-v4 .divider::before { display: none; }
+.d6.d6-v4 .divider.timed > i {
+  background: linear-gradient(90deg, transparent, rgba(30, 30, 30, 0.70));
+  box-shadow: none;
+}
+.d6.d6-v4 .divider.timed > i:last-child {
+  background: linear-gradient(90deg, rgba(30, 30, 30, 0.70), transparent);
+}
+
+/* Pills */
+.d6.d6-v4 .pill.gold {
+  background: #0A0A0A;
+  border-color: #1C1C1C;
+}
+.d6.d6-v4 .pill.gold .v { color: var(--ink); }
+.d6.d6-v4 .pill .v {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-weight: 300;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+/* Turn / action badge */
+.d6.d6-v4 .turnBadge {
+  background: #0A0A0A;
+  border-color: #1C1C1C;
+  color: #585858;
+}
+.d6.d6-v4 .turnBadge:hover { background: #141414; }
+
+/* Typography */
+.d6.d6-v4 h1 {
+  font-family: 'Geist', -apple-system, sans-serif;
+  font-weight: 300;
+  font-size: 34px;
+  letter-spacing: -0.03em;
+}
+.d6.d6-v4 .num {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+/* Chip count badge */
+.d6.d6-v4 .chipCount {
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Chip colors */
+.d6.d6-v4 .chip.c1   { background: conic-gradient(from 0deg, #A7A7A0 0 12%, #F3EEDC 12% 24%, #A7A7A0 24% 36%, #F3EEDC 36% 48%, #A7A7A0 48% 60%, #F3EEDC 60% 72%, #A7A7A0 72% 84%, #F3EEDC 84% 100%); }
+.d6.d6-v4 .chip.c5   { background: conic-gradient(from 0deg, #7F1F1F 0 12%, #C93434 12% 24%, #7F1F1F 24% 36%, #C93434 36% 48%, #7F1F1F 48% 60%, #C93434 60% 72%, #7F1F1F 72% 84%, #C93434 84% 100%); }
+.d6.d6-v4 .chip.c25  { background: conic-gradient(from 0deg, #16351F 0 12%, #2F5A3A 12% 24%, #16351F 24% 36%, #2F5A3A 36% 48%, #16351F 48% 60%, #2F5A3A 60% 72%, #16351F 72% 84%, #2F5A3A 84% 100%); }
+.d6.d6-v4 .chip.c100 { background: conic-gradient(from 0deg, #163E82 0 12%, #2E6FD1 12% 24%, #163E82 24% 36%, #2E6FD1 36% 48%, #163E82 48% 60%, #2E6FD1 60% 72%, #163E82 72% 84%, #2E6FD1 84% 100%); }
+.d6.d6-v4 .chip.c500 { background: conic-gradient(from 0deg, #0A0A0A 0 12%, #4A4A4A 12% 24%, #0A0A0A 24% 36%, #4A4A4A 36% 48%, #0A0A0A 48% 60%, #4A4A4A 60% 72%, #0A0A0A 72% 84%, #4A4A4A 84% 100%); }
+
+/* Chip ghost — vivid pulse against the void */
+.d6.d6-v4 .chipCol .chip.ghost {
+  opacity: 0.50;
+  filter: saturate(0.60) brightness(0.78);
+  z-index: 0;
+  pointer-events: auto;
+}
+.d6.d6-v4 .chipCol .chip.ghost.idle {
+  animation: d6v4GhostPulse 2.6s ease-in-out infinite;
+}
+@keyframes d6v4GhostPulse {
+  0%,  100% { opacity: 0.45; filter: saturate(0.55) brightness(0.72); }
+  50%        { opacity: 0.80; filter: saturate(0.85) brightness(1.00); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .d6.d6-v4 .chipCol .chip.ghost.idle { animation: none; opacity: 0.50; }
+}
+
+
+
+/* Bet box */
+.d6.d6-v4 .betBox {
+  background: #0A0A0A;
+  border-color: #1C1C1C;
+  box-shadow: none;
+}
+
+/* Bet box tab — full structural block (mirrors .d6.d6-v3 rules) */
+.d6.d6-v4 .betBoxWrap { position: relative; }
+.d6.d6-v4 .tabRow {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  z-index: 1;
+}
+.d6.d6-v4 .betBoxTab {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 21px;
+  padding: 0 12px;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: #0A0A0A;
+  border: 1px solid #1C1C1C;
+  border-bottom: none;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  margin-bottom: -1px;
+}
+.d6.d6-v4 .betBoxTab .v {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 12px;
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+}
+.d6.d6-v4 .betBoxWrap .betBox { border-top-left-radius: 0; }
+.d6.d6-v4 .betBoxWrap:not(:has(.betBoxTab)) .betBox { border-top-left-radius: 14px; }
+
+/* Buttons */
+.d6.d6-v4 .btn {
+  background: #0F0F0F;
+  border-color: #222222;
+  color: #C0C0C0;
+}
+.d6.d6-v4 .btn:disabled {
+  color: #383838;
+}
+.d6.d6-v4 .btn:hover:not(:disabled) {
+  background: #181818;
+  border-color: #333333;
+  color: #F0F0F0;
+}
+
+/* Bet — white border is the only primary signal */
+.d6.d6-v4 .btn.gold {
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #E8E8E8;
+  box-shadow: none;
+}
+.d6.d6-v4 .btn.gold:hover:not(:disabled) {
+  background: #1C1C1C;
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #F8F8F8;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Check */
+.d6.d6-v4 .btn.ghost {
+  background: #0F0F0F;
+  border-color: #222222;
+  color: #888888;
+}
+.d6.d6-v4 .btn.ghost:hover:not(:disabled) {
+  background: #181818;
+  border-color: #333333;
+  color: #C0C0C0;
+}
+
+/* Fold */
+.d6.d6-v4 .btn.danger {
+  background: #0F0F0F;
+  border-color: #222222;
+  color: #A04848;
+}
+.d6.d6-v4 .btn.danger:hover:not(:disabled) {
+  background: #181818;
+  border-color: rgba(160, 72, 72, 0.30);
+  color: #B85A5A;
+}
+
+/* Preset trigger */
+.d6.d6-v4 .presetTrig {
+  background: #0A0A0A;
+  border-color: #1C1C1C;
+}
+.d6.d6-v4 .presetTrig:hover:not(:disabled) {
+  background: #141414;
+  color: var(--ink);
+  border-color: #2C2C2C;
+}
+.d6.d6-v4 .presetTrig.open {
+  background: #141414;
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+
+/* Preset menu items */
+.d6.d6-v4 .presetMenu .presetItem {
+  background: #0A0A0A;
+  border-color: #1C1C1C;
+  color: var(--muted);
+}
+.d6.d6-v4 .presetMenu .presetItem:hover:not(:disabled) {
+  background: #141414;
+  border-color: #2C2C2C;
+  color: var(--ink);
+}
+
+/* Undo controls */
+.d6.d6-v4 .undoBtn:hover:not(:disabled) {
+  background: #141414;
+  color: var(--ink);
+  border-color: #2C2C2C;
+}
+.d6.d6-v4 .undoInline { color: var(--muted); }
+.d6.d6-v4 .undoInline:hover { color: var(--ink); }
+
+/* Notification toast */
+.d6.d6-v4 .notif {
+  background: #EBEBEB;
+  color: #0A0A0A;
+  border-color: transparent;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.80);
+}
+.d6.d6-v4 .notif.show::before { display: none; }

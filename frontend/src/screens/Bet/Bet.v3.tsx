@@ -40,15 +40,22 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
   const presetMenuRef = useRef<HTMLDivElement>(null);
   const presetTrigRef = useRef<HTMLButtonElement>(null);
   const chipAudioRef = useRef<HTMLAudioElement | null>(null);
+  const pillWrapRef    = useRef<HTMLDivElement>(null);
+  const timerCanvasRef = useRef<HTMLCanvasElement>(null);
+  const timerStartRef  = useRef<number | null>(null);
 
   const nav = useNavigate();
 
   const currentPlayer = gameState?.players.find((p) => p.name === playerName);
   const isMyTurn = gameState?.turnPlayer === playerName;
   const canAct = isMyTurn && currentPlayer && !currentPlayer.folded && !currentPlayer.allIn;
-  const stackDollars = (currentPlayer?.displayCents ?? 0) / 100;
-  const contributionDollars = (currentPlayer?.contributionCents ?? 0) / 100;
+  const playerStackCents = currentPlayer?.displayCents ?? 0;
+  const contribCents = currentPlayer?.contributionCents ?? 0;
+  const stackDollars = playerStackCents / 100;
+  const contributionDollars = contribCents / 100;
+  // bet is in dollars (sum of chip values); convert to cents with Math.round for all comparisons
   const bet = chips.reduce((s, c) => s + c.value, 0);
+  const betCents = Math.round(bet * 100);
 
   // ── Audio ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -150,6 +157,119 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     return () => document.removeEventListener("pointerdown", onDown);
   }, [presetMenuOpen]);
 
+  // ── Turn timer canvas ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isMyTurn) { timerStartRef.current = null; return; }
+    if (notification !== null) return;
+
+    let outerRaf: number;
+    let animId: number;
+    let activePill: HTMLElement | null = null;
+
+    outerRaf = requestAnimationFrame((firstTs) => {
+      const wrap   = pillWrapRef.current;
+      const canvas = timerCanvasRef.current;
+      if (!wrap || !canvas) return;
+
+      const pill = wrap.firstElementChild as HTMLElement | null;
+      if (!pill) return;
+      activePill = pill;
+
+      const rect = pill.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      if (w === 0 || h === 0) return;
+
+      const cs          = getComputedStyle(pill);
+      const borderColor = cs.borderColor;
+      const lw          = parseFloat(cs.borderWidth) || 1;
+      const r           = parseFloat(cs.borderRadius) || 0;
+
+      // Parse original border RGB for interpolation to red
+      const rgbMatch = borderColor.match(/\d+/g);
+      const origR = rgbMatch ? parseInt(rgbMatch[0]) : 255;
+      const origG = rgbMatch ? parseInt(rgbMatch[1]) : 255;
+      const origB = rgbMatch ? parseInt(rgbMatch[2]) : 255;
+
+      // Hide pill's CSS border — canvas draws it instead
+      pill.style.borderColor = 'transparent';
+
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width  = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      canvas.style.width  = `${w}px`;
+      canvas.style.height = `${h}px`;
+
+      const ctxRaw = canvas.getContext('2d');
+      if (!ctxRaw) return;
+      const ctx = ctxRaw;
+      ctx.scale(dpr, dpr);
+
+      const o  = lw / 2;
+      const rx = o, ry = o;
+      const rw = w - lw, rh = h - lw;
+      const rr = Math.max(0, Math.min(r, w / 2, h / 2) - o);
+      const perimeter = 2 * (rw - 2 * rr) + 2 * (rh - 2 * rr) + 2 * Math.PI * rr;
+
+      const DURATION = 30_000;
+      if (timerStartRef.current === null) timerStartRef.current = firstTs;
+      const turnStart = timerStartRef.current;
+
+      function frame(ts: number) {
+        const progress = Math.max(0, 1 - (ts - turnStart) / DURATION);
+
+        ctx.clearRect(0, 0, w, h);
+
+        if (progress > 0) {
+          const RED_THRESHOLD = 1 / 2;
+          let strokeColor: string;
+          if (progress >= RED_THRESHOLD) {
+            strokeColor = borderColor;
+          } else {
+            const t = Math.pow(1 - progress / RED_THRESHOLD, 0.75);
+            const sr = Math.round(origR + (232 - origR) * t);
+            const sg = Math.round(origG + (64  - origG) * t);
+            const sb = Math.round(origB + (64  - origB) * t);
+            strokeColor = `rgb(${sr},${sg},${sb})`;
+          }
+
+          ctx.save();
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth   = lw;
+          ctx.lineCap     = 'butt';
+          ctx.setLineDash([progress * perimeter, perimeter + 10]);
+
+          // Clockwise from top-center — shrinks counter-clockwise as progress falls
+          ctx.beginPath();
+          ctx.moveTo(rx + rw / 2, ry);
+          ctx.lineTo(rx + rw - rr, ry);
+          ctx.arc(rx + rw - rr, ry + rr,      rr, -Math.PI / 2, 0);
+          ctx.lineTo(rx + rw, ry + rh - rr);
+          ctx.arc(rx + rw - rr, ry + rh - rr, rr,  0,           Math.PI / 2);
+          ctx.lineTo(rx + rr, ry + rh);
+          ctx.arc(rx + rr,    ry + rh - rr,   rr,  Math.PI / 2, Math.PI);
+          ctx.lineTo(rx, ry + rr);
+          ctx.arc(rx + rr,    ry + rr,         rr,  Math.PI,     3 * Math.PI / 2);
+          ctx.lineTo(rx + rw / 2, ry);
+          ctx.stroke();
+          ctx.restore();
+
+          animId = requestAnimationFrame(frame);
+        }
+      }
+
+      animId = requestAnimationFrame(frame);
+    });
+
+    return () => {
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(animId);
+      if (activePill) activePill.style.borderColor = '';
+      const canvas = timerCanvasRef.current;
+      if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [isMyTurn, notification]);
+
   // ── Chip helpers ──────────────────────────────────────────────────────────
   function addChip(denom: Denom) {
     if (animating) return;
@@ -161,21 +281,51 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     setChips((prev) => [...prev, { id: idCounter.current, denom, value }]);
   }
 
-  function setBetTo(target: number) {
+  function setBetTo(targetCents: number) {
     if (animating) return;
     setInteracted(true);
-    const capped = Math.max(0, Math.min(Math.floor(target), stackDollars));
-    const result: ChipEntry[] = [];
-    let remaining = capped;
-    for (const d of DENOMS_DESC) {
-      const val = chipDenoms[d];
-      if (val <= 0) continue;
-      while (remaining >= val) {
-        idCounter.current += 1;
-        result.push({ id: idCounter.current, denom: d, value: val });
-        remaining -= val;
+
+    const cappedCents = Math.max(0, Math.min(targetCents, playerStackCents));
+    if (cappedCents === 0) {
+      setChips([]);
+      setPresetMenuOpen(false);
+      return;
+    }
+
+    // Build denom list in cents (integers)
+    const denoms = DENOMS_DESC
+      .map(d => ({ denom: d, cents: Math.round(chipDenoms[d] * 100) }))
+      .filter(({ cents }) => cents > 0);
+
+    // Coin-change DP: dp[i] = min chips to reach i cents, parent[i] = cent value of chip used
+    const dp: number[] = new Array(cappedCents + 1).fill(Infinity);
+    const parent: number[] = new Array(cappedCents + 1).fill(0);
+    dp[0] = 0;
+
+    for (let i = 1; i <= cappedCents; i++) {
+      for (const { cents } of denoms) {
+        if (cents <= i && dp[i - cents] + 1 < dp[i]) {
+          dp[i] = dp[i - cents] + 1;
+          parent[i] = cents;
+        }
       }
     }
+
+    // Use exact amount if reachable, otherwise largest reachable amount below target
+    let amount = cappedCents;
+    while (amount > 0 && dp[amount] === Infinity) amount--;
+
+    // Reconstruct chip sequence by tracing parent pointers
+    const result: ChipEntry[] = [];
+    let rem = amount;
+    while (rem > 0) {
+      const usedCents = parent[rem];
+      const usedDenom = denoms.find(({ cents }) => cents === usedCents)!.denom;
+      idCounter.current += 1;
+      result.push({ id: idCounter.current, denom: usedDenom, value: chipDenoms[usedDenom] });
+      rem -= usedCents;
+    }
+
     setChips(result);
     setPresetMenuOpen(false);
   }
@@ -199,6 +349,7 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     const total = chips.length * 20 + 200 + 60;
     setTimeout(() => {
       setChips([]);
+      setInteracted(false);
       setAnimating(false);
     }, total);
   }
@@ -208,7 +359,7 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     setAnimating(true);
 
     const rootEl = rootRef.current;
-    if (!rootEl) { setChips([]); setAnimating(false); onDone?.(); return; }
+    if (!rootEl) { setChips([]); setInteracted(false); setAnimating(false); onDone?.(); return; }
 
     const rect = rootEl.getBoundingClientRect();
     const targetX = rect.left + rect.width / 2;
@@ -237,22 +388,29 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     const total = maxDelay + 520 + 80;
     setTimeout(() => {
       setChips([]);
+      setInteracted(false);
       setAnimating(false);
       onDone?.();
     }, total);
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const minOpenBetDollars = (gameState?.bigBlindCents ?? 0) / 100;
+  const isPreFlop = gameState?.roundName === "Pre-Flop";
+  const sbPosted = (gameState?.players[0]?.contributionCents ?? 0) > 0;
+  const bbPosted = (gameState?.players[1]?.contributionCents ?? 0) > 0;
+  const isPostingBlind = isPreFlop && (
+    (playerName === gameState?.players[0]?.name && !sbPosted) ||
+    (playerName === gameState?.players[1]?.name && !bbPosted)
+  );
+  const minOpenBetCents = gameState?.bigBlindCents ?? 0;
   const isOpenBet = !gameState?.lastAggressorName || gameState?.lastAggressorAction === "blind";
-  const betTooSmall = isOpenBet && bet > 0 && bet < minOpenBetDollars;
+  const betTooSmall = !isPostingBlind && isOpenBet && betCents > 0 && (contribCents + betCents) < minOpenBetCents;
 
   async function handleBet() {
-    if (animating || bet <= 0 || bet > stackDollars || !canAct || betTooSmall) return;
-    const totalCents = Math.round((bet + contributionDollars) * 100);
+    if (animating || betCents <= 0 || betCents > playerStackCents || !canAct || betTooSmall) return;
+    const totalCents = betCents + contribCents;
     try {
       await makeMove(gameId, { playerId: playerName, selection: "CALL_RAISE", bet: totalCents });
-      showNotification(`Bet $${bet.toLocaleString()}`);
       flyBet();
     } catch (err) {
       console.warn("Bet failed:", err);
@@ -278,13 +436,13 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
     }
   }
 
-  // ── Presets ───────────────────────────────────────────────────────────────
+  // ── Presets (integer cents straight from server — zero floating point) ────
   const presets = [
-    { id: "call",  label: "CALL",    value: Math.min(Math.round((gameState?.minCallAmt  ?? 0) / 100), stackDollars) },
-    { id: "raise", label: "RAISE",   value: Math.min(Math.round((gameState?.minRaiseAmt ?? 0) / 100), stackDollars) },
-    { id: "half",  label: "½ POT",   value: Math.min(Math.round((gameState?.totalPot ?? 0) / 200), stackDollars) },
-    { id: "pot",   label: "POT",     value: Math.min(Math.round((gameState?.totalPot ?? 0) / 100), stackDollars) },
-    { id: "allin", label: "ALL-IN",  value: stackDollars },
+    { id: "call",  label: (() => { if (!isMyTurn) return "CALL"; const amt = ((gameState?.minCallAmt ?? 0) - contribCents) / 100; return amt > 0 ? `CALL $${parseFloat(amt.toFixed(2))}` : "CALL"; })(),   cents: Math.min(Math.max(0, (gameState?.minCallAmt  ?? 0) - contribCents), playerStackCents) },
+    { id: "raise", label: "MIN RAISE",  cents: Math.min(Math.max(0, (gameState?.minRaiseAmt ?? 0) - contribCents), playerStackCents) },
+    { id: "half",  label: "1/2 POT",  cents: Math.min(Math.round((gameState?.totalPot ?? 0) / 2), playerStackCents) },
+    { id: "pot",   label: "FULL POT",    cents: Math.min(gameState?.totalPot ?? 0, playerStackCents) },
+    { id: "allin", label: "ALL-IN", cents: playerStackCents },
   ];
 
   // ── Action context pill ───────────────────────────────────────────────────
@@ -318,13 +476,23 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
       return <div className="turnBadge">Post big blind: {fmtDollars(gameState.bigBlindCents / 100)}</div>;
     }
 
-    // 3. No aggressor (or blind was the aggressor), preflop — blinds posted
+    // 3. Player is already matched — can check or raise
+    if (contribCents > 0 && contribCents === (gameState.minCallAmt ?? 0)) {
+      const toRaiseDollars = Math.max(0, ((gameState.minRaiseAmt ?? 0) - contribCents) / 100);
+      return (
+        <div className="turnBadge">
+          You're matched{dot}<span style={{ color: "var(--gold)" }}>{fmtDollars(toRaiseDollars)}</span>{" to raise"} or check
+        </div>
+      );
+    }
+
+    // 5. No aggressor (or blind was the aggressor), preflop — blinds posted
     if ((!aggName || aggAction === "blind") && isPreFlop) {
       const bbAmt = aggAction === "blind" ? aggAmt : (gameState.bigBlindCents ?? 0) / 100;
       return <div className="turnBadge">BB posted {fmtDollars(bbAmt)}{dot}{call}</div>;
     }
 
-    // 4. No aggressor, not preflop — first to act
+    // 6. No aggressor, not preflop — first to act
     if (!aggName && !isPreFlop) {
       return (
         <div className="turnBadge">
@@ -333,7 +501,7 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
       );
     }
 
-    // 5–8. Aggressor exists
+    // 7+. Aggressor exists
     let left = "";
     if      (aggAction === "bet")      left = `${aggName} bet ${fmtDollars(aggAmt)}`;
     else if (aggAction === "raised")   left = `${aggName} raised to ${fmtDollars(aggAmt)}`;
@@ -350,16 +518,15 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
   if (!gameState) return null;
 
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 844, height: 393, flexShrink: 0 }}>
-      <div className="d6 d6-v3" data-frame="panel" data-breaks="subtle" data-felt="classic" ref={rootRef}>
+    <div style={{ width: "100%", height: "100dvh" }}>
+      <div className="d6 d6-v3" data-frame="open" data-breaks="subtle" data-felt="deep" ref={rootRef}>
         <RoundOverlay visible={roundOverlay.visible} text={roundOverlay.text} />
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
           <div>
             <div className="eyebrow" style={{ color: "var(--gold)" }}>
-              {isMyTurn ? "YOUR TURN" : "TURN"}
+              {isMyTurn ? "YOUR TURN" : (gameState?.roundName ?? "TURN")}
             </div>
             <h1>{playerName}</h1>
           </div>
@@ -368,7 +535,10 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
             {notification ? (
               <div className={`notif ${notifVisible ? "show" : ""}`}>{notification}</div>
             ) : (
-              renderActionPill()
+              <div ref={pillWrapRef} style={{ position: "relative", display: "inline-flex" }}>
+                {renderActionPill()}
+                <canvas ref={timerCanvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+              </div>
             )}
             {!isMyTurn && !notification && (
               <div style={{ color: "var(--muted)", fontSize: 13 }}>
@@ -391,7 +561,8 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
         </div>
 
         {/* ── Divider ─────────────────────────────────────────────────────── */}
-        <div className="divider timed"><i /><i /></div>
+        {/* <div className="divider timed"><i /><i /></div> */}
+        <div className="divider"><i /><i /></div>
 
         {/* ── Chip row ────────────────────────────────────────────────────── */}
         <div
@@ -409,11 +580,12 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
               <div key={d} className="chipCol">
                 {/* Ghost base chip — always present, fades when interacted */}
                 <div
-                  className={`chip ${DENOM_CLASS[d]} base ghost${interacted ? "" : " idle"}`}
-                  onClick={() => addChip(d)}
+                  className={`chip ${DENOM_CLASS[d]} base ghost${isMyTurn && !interacted ? " idle" : ""}`}
+                  onClick={() => isMyTurn && addChip(d)}
                   role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === "Enter" && addChip(d)}
+                  tabIndex={isMyTurn ? 0 : -1}
+                  onKeyDown={(e) => e.key === "Enter" && isMyTurn && addChip(d)}
+                  style={{ pointerEvents: isMyTurn ? undefined : "none" }}
                 >
                   <div className="core">${denomVal}</div>
                 </div>
@@ -424,12 +596,15 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
                     key={c.id}
                     ref={(el) => { chipRefs.current[c.id] = el; }}
                     className={`chip ${DENOM_CLASS[d]} stacked`}
-                    style={{ bottom: i * 12, zIndex: 2 + i }}
-                    onClick={() => addChip(d)}
+                    style={{ bottom: i * 7, zIndex: 2 + i, pointerEvents: isMyTurn ? undefined : "none" }}
+                    onClick={() => isMyTurn && addChip(d)}
                   >
                     <div className="core">${c.value}</div>
                   </div>
                 ))}
+                {colChips.length > 0 && (
+                  <div className="chipCount">{colChips.length}</div>
+                )}
               </div>
             );
           })}
@@ -508,8 +683,8 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
                   <button
                     key={p.id}
                     className="presetItem"
-                    onClick={() => setBetTo(p.value)}
-                    disabled={animating || p.value === 0}
+                    onClick={() => setBetTo(p.cents)}
+                    disabled={animating || !isMyTurn || p.cents === 0}
                     role="menuitem"
                     style={{ fontSize: "11px" }}
                   >
@@ -562,7 +737,6 @@ export default function BetV3({ gameId, playerName }: { gameId: string; playerNa
 
         {/* ── Hand Guide overlay ───────────────────────────────────────────── */}
         <HandGuideOverlay open={handsOpen} onClose={() => setHandsOpen(false)} />
-      </div>
       </div>
     </div>
   );

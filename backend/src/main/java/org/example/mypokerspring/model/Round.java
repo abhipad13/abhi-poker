@@ -236,7 +236,6 @@ public class Round {
     }
 
     private void handleCheck(User player) {
-        // Prevent checking before posting blinds
         if (isPreFlop && !blindPosted.contains(player)) {
             if (player.equals(smallBlindPlayer) || player.equals(bigBlindPlayer)) {
                 gameLog.log(LogEventType.ERROR, "Must post blind.", true, true);
@@ -244,7 +243,12 @@ public class Round {
             }
         }
 
-        handleBet(player, 0);
+        int playerContrib = contributionsCents.getOrDefault(player, 0);
+        if (playerContrib < highestBetCents) {
+            gameLog.log(LogEventType.ERROR, "Cannot check — there is a bet to call.", true, true);
+            throw new IllegalArgumentException("Cannot check when there is an outstanding bet.");
+        }
+
         gameLog.log(LogEventType.PLAYER_ACTION,
                 " " + player.getName() + " checked.", true, false);
     }
@@ -312,7 +316,9 @@ public class Round {
         }
 
         // ✅ Process move only if correct player
+        boolean wasBlindPosted = blindPosted.contains(player);
         userMove(player, moveType, bet);
+        boolean justPostedBlind = !wasBlindPosted && blindPosted.contains(player);
 
         if (!activePlayers.contains(player)) {
             if (playerIndex >= activePlayers.size()) {
@@ -320,7 +326,9 @@ public class Round {
             }
         } else {
             nextPlayer();
-            actedPlayers.add(player);
+            if (!justPostedBlind) {
+                actedPlayers.add(player);
+            }
         }
     }
 
